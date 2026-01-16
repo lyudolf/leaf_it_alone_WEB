@@ -1,0 +1,83 @@
+/**
+ * RAKE: Scraping motion that gathers leaves toward center line then pulls toward player
+ * Like a real rake - wide gathering motion toward center, then pull back
+ */
+function applyRakeForces(
+    api: any,
+    mesh: THREE.InstancedMesh,
+    toolPos: THREE.Vector3,
+    camera: THREE.Camera,
+    config: typeof TOOL_CONFIG.RAKE
+) {
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const leafCount = mesh.count;
+
+    // Camera backward direction (toward player)
+    const toPlayer = new THREE.Vector3(0, 0, 1);
+    toPlayer.applyQuaternion(camera.quaternion);
+    toPlayer.y = 0;
+    toPlayer.normalize();
+    
+    // Camera forward direction (center line of rake)
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(camera.quaternion);
+    forward.y = 0;
+    forward.normalize();
+    
+    // Cone angle in radians
+    const coneAngleRad = (config.coneAngle * Math.PI) / 180;
+
+    for (let i = 0; i < leafCount; i++) {
+        mesh.getMatrixAt(i, matrix);
+        position.setFromMatrixPosition(matrix);
+
+        const dist = position.distanceTo(toolPos);
+
+        // Only affect leaves within range and on the ground
+        if (dist < config.range && position.y < 1) {
+            // Check if within cone angle
+            const toLeaf = new THREE.Vector3().subVectors(position, toolPos).normalize();
+            const angle = toPlayer.angleTo(toLeaf);
+            
+            // Only affect leaves within the cone
+            if (angle <= coneAngleRad) {
+                // Calculate position on center line (closest point on forward axis)
+                const leafToTool = new THREE.Vector3().subVectors(position, toolPos);
+                const distAlongForward = leafToTool.dot(forward);
+                const centerLinePoint = toolPos.clone().add(forward.clone().multiplyScalar(distAlongForward));
+                
+                // Direction toward center line (lateral gathering)
+                const toCenterLine = new THREE.Vector3().subVectors(centerLinePoint, position);
+                const lateralDist = toCenterLine.length();
+                
+                // Combine: pull toward center line + pull toward player
+                const scrapeDir = new THREE.Vector3();
+                
+                if (lateralDist > 0.1) {
+                    // If far from center line, prioritize gathering to center
+                    toCenterLine.normalize();
+                    scrapeDir.add(toCenterLine.multiplyScalar(0.7)); // 70% toward center
+                    scrapeDir.add(toPlayer.clone().multiplyScalar(0.3)); // 30% toward player
+                } else {
+                    // If already on center line, just pull toward player
+                    scrapeDir.copy(toPlayer);
+                }
+                
+                scrapeDir.normalize();
+                
+                // Distance falloff
+                const falloff = 1 - (dist / config.range);
+                
+                // Calculate scrape force
+                const force = scrapeDir.multiplyScalar(config.scrapeStrength * falloff);
+                
+                // Apply impulse
+                api.at(i).applyImpulse(
+                    [force.x * 0.15, 0.05, force.z * 0.15],
+                    [0, 0, 0]
+                );
+            }
+        }
+    }
+}
