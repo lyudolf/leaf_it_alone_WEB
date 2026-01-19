@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Obstacle Objects MVP (v0.2) - Therapeutic Research Tool
 
-## Getting Started
+An interactive research tool for observing and regulating procedural obstacle objects. The current version features the **FOG** object.
 
-First, run the development server:
+## Run Steps
+1. Install dependencies: `npm install xstate @xstate/react`
+2. Start dev server: `npm run dev`
+3. Open `http://localhost:3000`
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Interactions
+- **Arousal**: Fog intensity increases naturally over time (capped at 0.7).
+- **HOLD**: Press and hold on the screen for **1200ms**. A regulatory ring will appear.
+- **RELEASE**: Upon 1200ms completion, fog intensity drops sharply (35% of current), visuals calm, and a blue hue is briefly visible.
+- **DRAG**: Click/touch and move to guide the fog's flow (wind vector).
+- **PANIC**: Immediate neutralization of all stimuli.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tuning Table (FOG)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Parameter | Default Value | Effect |
+|-----------|---------------|--------|
+| `holdMs` | 1200ms | Duration required for a successful RELEASE. |
+| `arousalRate`| 0.05 / sec | Speed at which intensity increases naturally. |
+| `maxStimulus`| 0.7 | Absolute hard cap for all intensity levels. |
+| `releaseDrop`| 0.35 (x) | Multiplying factor applied to intensity upon success. |
+| `windStrength`| 2.5 | Influence of drag gestures on fog drift. |
+| `wobbleMax` | 1.5 | Max vibration of fog blobs at peak intensity. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Acceptance Checklist
 
-## Learn More
+- [ ] **Intensity Escalation**: Fog density increases slowly but never crosses 70% threshold.
+- [ ] **Hold/Release Reliability**: Holding for ~1.2s consistently triggers the release effect and intensity drop.
+- [ ] **Wind Control**: Dragging moves the fog blobs in the matching direction.
+- [ ] **Panic Button**: Immediate return to neutral/safe state (hidden/low intensity).
+- [ ] **Neutral Mode**: Visuals appear "softer" and more abstract when toggled ON.
+- [ ] **Safety Compliance**: No raw trauma text or narrative inputs are present.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture Detail
+- **State Machine**: Driven by XState (`src/machines/fogMachine.ts`).
+- **Visuals**: Procedural InstancedMesh in Three.js (`src/components/objects/FogCloud.tsx`).
+- **Logic**: Decoupled using a `SceneSpec` configuration.

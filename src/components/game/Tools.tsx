@@ -51,7 +51,24 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
                 setClicked(true); // Keep this for RAKE
             }
 
-            if (e.button !== 0) return; // Left click only
+            // Throw Bag (Right Click)
+            if (e.button === 2 && currentTool === 'HAND' && carriedBagId) {
+                // Calc throw direction
+                const throwDir = new THREE.Vector3(0, 0, -1);
+                throwDir.applyQuaternion(camera.quaternion);
+                throwDir.normalize();
+
+                // Add some upward force
+                throwDir.multiplyScalar(75); // Forward force (3x boost)
+                throwDir.y += 24; // Upward arc (3x boost)
+
+                // Trigger impulse and drop
+                useGameStore.getState().triggerBagImpulse(carriedBagId, [throwDir.x, throwDir.y, throwDir.z]);
+                setCarriedBag(null);
+                return;
+            }
+
+            if (e.button !== 0) return; // Ignore other buttons for standard interaction
 
             // HAND Interactions
             if (currentTool === 'HAND') {
@@ -186,12 +203,39 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
             }
         };
 
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && currentTool === 'HAND' && carriedBagId) {
+                // Throw Bag
+                // Calc throw direction
+                const throwDir = new THREE.Vector3(0, 0, -1);
+                throwDir.applyQuaternion(camera.quaternion);
+                throwDir.normalize();
+
+                // Add some upward force
+                throwDir.multiplyScalar(8); // Forward force
+                throwDir.y += 3; // Upward arc
+
+                // Trigger impulse and drop
+                useGameStore.getState().triggerBagImpulse(carriedBagId, [throwDir.x, throwDir.y, throwDir.z]);
+                setCarriedBag(null);
+            }
+        };
+
+        const handleContextMenu = (e: MouseEvent) => {
+            e.preventDefault(); // Block browser menu
+        };
+
         window.addEventListener('mousedown', handleMouseDown);
         window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('contextmenu', handleContextMenu);
+
+        // Remove spacebar listener
+        // window.addEventListener('keydown', handleKeyDown);
 
         return () => {
             window.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('contextmenu', handleContextMenu);
         };
     }, [currentTool, leafApi, camera, scene, pickAmount, carriedBagId, addLeaf, createBag, setCarriedBag, leafRef]);
 
@@ -231,48 +275,117 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
 
             applyBlowerForces(leafApi, blowerPos, camera, config);
         }
+
+        if (currentTool === 'VACUUM' && isMouseDown) {
+            const now = state.clock.elapsedTime * 1000;
+            const config = TOOL_CONFIG.VACUUM;
+
+            if (now - lastTickTime.current < config.tickInterval) return;
+            lastTickTime.current = now;
+
+            applyVacuumCollector(leafApi, leafRef, camera, config, addLeaf, createBag);
+        }
     });
 
-    if (currentTool === 'HAND') {
-        return null;
-    }
-
-    const config = TOOL_CONFIG[currentTool];
+    // Show visual colliders for testing tools
+    const config = (TOOL_CONFIG as any)[currentTool];
+    if (!config) return null;
 
     return (
         <>
             <mesh position={toolPosition.current}>
                 <sphereGeometry args={[config.range, 32, 32]} />
                 <meshBasicMaterial
-                    color={currentTool === 'RAKE' ? '#ff8800' : '#00ddff'}
+                    color={currentTool === 'RAKE' ? '#ff8800' : currentTool === 'VACUUM' ? '#ff00ff' : '#00ddff'}
                     wireframe
-                    opacity={isMouseDown ? 0.4 : 0.15}
+                    opacity={isMouseDown ? 0.3 : 0.1}
                     transparent
                 />
             </mesh>
 
-            <mesh position={toolPosition.current}>
-                <sphereGeometry args={[0.5, 16, 16]} />
-                <meshBasicMaterial
-                    color={currentTool === 'RAKE' ? '#ffaa00' : '#00ffff'}
-                    opacity={isMouseDown ? 0.8 : 0.3}
-                    transparent
-                />
-            </mesh>
-
-            {currentTool === 'BLOWER' && (
-                <mesh position={toolPosition.current} rotation={[Math.PI / 2, 0, 0]}>
-                    <coneGeometry args={[config.range * 0.6, config.range * 1.5, 16, 1, true]} />
-                    <meshBasicMaterial
-                        color="#00ddff"
-                        opacity={isMouseDown ? 0.2 : 0.08}
-                        transparent
-                        side={2}
-                    />
+            {currentTool === 'VACUUM' && (
+                <mesh position={camera.position.clone().add(new THREE.Vector3(0, -0.5, 0))}>
+                    <sphereGeometry args={[config.collectRadius, 16, 16]} />
+                    <meshBasicMaterial color="#ffffff" opacity={0.2} transparent />
                 </mesh>
             )}
         </>
     );
+}
+
+function applyVacuumCollector(
+    api: any,
+    ref: React.RefObject<THREE.InstancedMesh>,
+    camera: THREE.Camera,
+    config: typeof TOOL_CONFIG.VACUUM,
+    onCollect: (n: number) => void,
+    createBag: (pos: [number, number, number]) => void
+) {
+    const count = api.count;
+    const positions = api.positions;
+    const rangeSq = config.range * config.range;
+    const collectSq = config.collectRadius * config.collectRadius;
+    const playerPos = camera.position;
+
+    let collectedCount = 0;
+
+    for (let i = 0; i < count; i++) {
+        const idx = i * 3;
+        if (positions[idx + 1] < -100) continue;
+
+        const lx = positions[idx];
+        const ly = positions[idx + 1];
+        const lz = positions[idx + 2];
+
+        // Calc vector from leaf to player
+        const dx = playerPos.x - lx;
+        const dy = playerPos.y - ly;
+        const dz = playerPos.z - lz;
+        const distSq = dx * dx + dy * dy + dz * dz;
+
+        if (distSq < rangeSq) {
+            if (distSq < collectSq) {
+                // Collect!
+                positions[idx + 1] = -1000;
+                api.velocities[idx * 3 + 1] = 0;
+
+                const dummy = new THREE.Object3D();
+                dummy.position.set(0, -1000, 0);
+                dummy.scale.set(0, 0, 0);
+                dummy.updateMatrix();
+                if (ref.current) ref.current.setMatrixAt(i, dummy.matrix);
+
+                collectedCount++;
+            } else {
+                // Pull towards player
+                const dist = Math.sqrt(distSq);
+                const dir = new THREE.Vector3(dx, dy, dz).normalize();
+                const strength = config.strength * (1 - dist / config.range) * 0.2;
+
+                api.applyImpulse(i, [
+                    dir.x * strength,
+                    dir.y * strength + 0.1, // Slight lift
+                    dir.z * strength
+                ]);
+            }
+        }
+    }
+
+    if (collectedCount > 0) {
+        if (ref.current) ref.current.instanceMatrix.needsUpdate = true;
+        onCollect(collectedCount);
+
+        // Auto-Bagging Check (Vacuum tool special)
+        const currentScore = useGameStore.getState().score;
+        if (currentScore >= 100) {
+            const spawnPos = new THREE.Vector3(0, 0, -1.2);
+            spawnPos.applyQuaternion(camera.quaternion);
+            spawnPos.add(camera.position);
+            spawnPos.y = Math.max(0.5, spawnPos.y);
+
+            createBag([spawnPos.x, spawnPos.y, spawnPos.z]);
+        }
+    }
 }
 
 function applyRakeForces(

@@ -1,56 +1,69 @@
 'use client';
 
 import { useBox } from '@react-three/cannon';
+import { useGLTF } from '@react-three/drei';
+import { useEffect } from 'react';
+import * as THREE from 'three';
 import { useGameStore } from '@/game/store';
 
-export function TrashBin({ position }: { position: [number, number, number] }) {
+interface TrashBinProps {
+    position: [number, number, number];
+    scale?: number;
+}
+
+export function TrashBin({ position, scale = 1 }: TrashBinProps) {
     const removeBag = useGameStore(s => s.removeBag);
 
+    // Load GLB model
+    const { scene } = useGLTF('/models/trash_bin.glb');
+    const clonedScene = scene.clone();
+
+
+    // Enable shadows and smooth shading on all meshes
+    useEffect(() => {
+        clonedScene.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                // Enable smooth shading to remove flat polygon look
+                if (child.geometry) {
+                    child.geometry.computeVertexNormals();
+                }
+            }
+        });
+    }, [clonedScene]);
+
+
+    // Physics collision box
+    const binHeight = 2.5 * scale; // Increased height for easier tosses
     const [ref] = useBox(() => ({
         type: 'Static',
-        position,
-        args: [1, 1.2, 1],
+        position: [position[0], position[1] + binHeight / 2, position[2]],
+        args: [1.5 * scale, binHeight, 1.5 * scale], // Slightly larger for easier hit
+        userData: { type: 'bin' }, // Tag for collision detection
         onCollide: (e) => {
-            // Check if colliding with a bag
-            // The object name is usually available in e.body.name if set in ThreeJS, 
-            // but Cannon might not propagate it directly to the local event object structure seamlessly in all versions.
-            // Using userData is safer, but R3F cannon binds the mesh.
-
-            // Try to get the mesh name
-            const hitObject = e.body as any; // Cannon body
-            // e.target is this body. e.body is the OTHER body.
-
-            // NOTE: @react-three/cannon's onCollide event usually exposes 'body' which is the cannon body.
-            // Mapping back to the THREE mesh or ID is tricky without user data.
-            // However, we gave the mesh a name `bag-${id}`.
-
-            // Simplest hack: The Bag component itself can have an onCollide with the Bin?
-            // No, multiple bags. Bin is one.
-
-            // Let's look at the name.
-            if (hitObject && hitObject.name && hitObject.name.startsWith('bag-')) {
-                const bagId = hitObject.name.replace('bag-', '');
-                removeBag(bagId, true);
+            const other = e.body as any;
+            // Check if what hit us is a bag
+            const bagId = other?.userData?.bagId;
+            if (bagId) {
+                console.log('Bin hit by bag:', bagId);
+                useGameStore.getState().removeBag(bagId, true);
             }
         }
     }));
 
     return (
-        <group ref={ref as any} position={position}>
-            {/* Visuals */}
-            <mesh castShadow receiveShadow position={[0, 0, 0]}>
-                <boxGeometry args={[1, 1.2, 1]} />
-                <meshStandardMaterial color="#2d3748" />
-            </mesh>
-            <mesh position={[0, 0, 0.51]}>
-                <planeGeometry args={[0.6, 0.6]} />
-                <meshStandardMaterial color="#48bb78" /> {/* Green Sell Areas */}
-            </mesh>
-            {/* Open top visual */}
-            <mesh position={[0, 0.61, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[0.8, 0.8]} />
-                <meshStandardMaterial color="black" />
+        <group position={position}>
+            {/* GLB Model */}
+            <primitive object={clonedScene} scale={scale} />
+
+            {/* Invisible collision box */}
+            <mesh ref={ref as any} visible={false}>
+                <boxGeometry args={[1.5 * scale, binHeight, 1.5 * scale]} />
             </mesh>
         </group>
     );
 }
+
+// Preload the model
+useGLTF.preload('/models/trash_bin.glb');

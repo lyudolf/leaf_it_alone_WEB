@@ -7,17 +7,38 @@ import { ShopUI } from '@/components/ui/ShopUI';
 const TOOL_ICONS: Record<ToolType, string> = {
     HAND: '✋',
     RAKE: '🧹',
-    BLOWER: '💨'
+    BLOWER: '💨',
+    VACUUM: '🌀'
 };
 
 const TOOL_DESCRIPTIONS: Record<ToolType, string> = {
     HAND: 'Click to collect leaves',
     RAKE: 'Click to scrape leaves toward you',
-    BLOWER: 'Hold to blast leaves away'
+    BLOWER: 'Hold to blast leaves away',
+    VACUUM: 'Hold to suck up leaves'
 };
 
 export function UIOverlay() {
-    const { score, money, currentTool, unlockedTools, setTool, isInventoryOpen, isShopOpen } = useGameStore();
+    const {
+        score,
+        totalLeavesInStage,
+        currentStage,
+        totalCollected,
+        bagsDeliveredToDrain,
+        bagsRequiredToClear,
+        objectiveType,
+        money,
+        currentTool,
+        unlockedTools,
+        setTool,
+        isInventoryOpen,
+        isShopOpen
+    } = useGameStore();
+
+    const isLeafGoal = objectiveType === 'LEAVES';
+    const progress = isLeafGoal
+        ? (totalCollected / totalLeavesInStage) * 100
+        : (bagsDeliveredToDrain / bagsRequiredToClear) * 100;
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6">
@@ -37,9 +58,36 @@ export function UIOverlay() {
 
             {/* HUD Header */}
             <div className="flex justify-between items-start pointer-events-auto">
-                <div className="bg-white/90 p-4 rounded-xl shadow-lg border-2 border-slate-200">
-                    <div className="text-sm text-slate-500 font-bold uppercase tracking-wider">Leaves Collected</div>
-                    <div className="text-3xl font-black text-slate-800">{score}</div>
+                <div className="bg-white/90 p-4 rounded-xl shadow-lg border-2 border-slate-200 min-w-[220px]">
+                    <div className="flex justify-between items-center mb-1">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            {isLeafGoal ? 'Leaves Collected' : 'Bags to Drain'}
+                        </div>
+                        <div className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{currentStage}단계</div>
+                    </div>
+                    <div className="flex items-end justify-between gap-4 mb-2">
+                        <div className="text-4xl font-black text-slate-800 leading-none">
+                            {isLeafGoal ? totalCollected.toLocaleString() : bagsDeliveredToDrain}
+                        </div>
+                        <div className="text-sm font-bold text-slate-400 pb-1">/ {isLeafGoal ? totalLeavesInStage.toLocaleString() : bagsRequiredToClear}</div>
+                    </div>
+
+                    {/* Progress Bar Container */}
+                    <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden relative">
+                        {/* Progress Bar Fill */}
+                        <div
+                            className="h-full bg-blue-600 transition-all duration-500 ease-out rounded-full"
+                            style={{ width: `${Math.min(100, progress)}%` }}
+                        />
+                    </div>
+
+                    {/* Percentage Label */}
+                    <div className="flex justify-between items-center mt-1.5">
+                        <div className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">
+                            {isLeafGoal ? 'Collection Progress' : 'Delivery Progress'}
+                        </div>
+                        <div className="text-xs font-black text-slate-700">{Math.min(100, Math.floor(progress))}%</div>
+                    </div>
                 </div>
             </div>
 

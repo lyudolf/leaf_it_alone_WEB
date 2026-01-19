@@ -24,10 +24,16 @@ export const TOOL_CONFIG = {
         minPushDistance: 5,    // Minimum distance leaves should travel (for feel)
         tickInterval: 50,      // Apply force every N milliseconds
     },
+    VACUUM: {
+        range: 6,              // Suction range
+        collectRadius: 1.5,    // Automatic collection radius
+        strength: 20,          // Pull strength
+        tickInterval: 50,
+    },
     PERFORMANCE: {
         maxActiveLeaves: 300,  // Max leaves to apply physics to
         activationRadius: 25,  // Radius around player for active physics (units)
     }
 } as const;
 
-export type ToolType = 'HAND' | 'RAKE' | 'BLOWER';
+export type ToolType = 'HAND' | 'RAKE' | 'BLOWER' | 'VACUUM';

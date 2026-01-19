@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import { SCENES } from '@/spec/scenes';
 
-export type ToolType = 'HAND' | 'RAKE' | 'BLOWER';
+export type ToolType = 'HAND' | 'RAKE' | 'BLOWER' | 'VACUUM';
 
 export interface Upgrades {
     rakeRange: number;
@@ -13,17 +14,28 @@ export interface Upgrades {
 interface GameState {
     score: number;
     money: number;
+    totalLeaves: number;
+    totalCollected: number; // For progress tracking
     currentTool: ToolType;
     unlockedTools: ToolType[];
 
     // UI State
     isInventoryOpen: boolean;
     isShopOpen: boolean;
+    isAirVentActive: boolean;
+    playerPushEvent: { pos: [number, number, number], radius: number, strength: number, timestamp: number } | null;
+    currentStage: number;
+    totalLeavesInStage: number;
+    bagsDeliveredToDrain: number;
+    bagsRequiredToClear: number;
+    objectiveType: 'LEAVES' | 'BAGS';
+    stageCleared: boolean;
 
     // Game Logic State
     pickAmount: number; // 1 -> 3 -> 5 -> 10
     moneyMultiplier: number; // 1.0 -> 1.2 -> 1.5 -> 2.0
     carriedBagId: string | null;
+    bagImpulse: { id: string; force: [number, number, number] } | null;
 
     // Bags
     bags: { id: string; position: [number, number, number]; value: number }[];
@@ -31,31 +43,50 @@ interface GameState {
     // Upgrade State
     upgrades: Upgrades;
 
+
+
     // Actions
-    addLeaf: (amount: number) => void; // Modified to create bags
+    addLeaf: (amount: number) => void;
     createBag: (position: [number, number, number]) => void;
     removeBag: (id: string, sold: boolean) => void;
     setCarriedBag: (id: string | null) => void;
+    triggerBagImpulse: (id: string, force: [number, number, number]) => void;
+    clearBagImpulse: () => void; // Used by Bag component to consume the event
 
     setTool: (tool: ToolType) => void;
     unlockTool: (tool: ToolType) => void;
     toggleInventory: () => void;
     toggleShop: () => void;
-    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI', cost: number, value: number) => void; // Specific types
+    setAirVentActive: (active: boolean) => void;
+    triggerPlayerPush: (pos: [number, number, number], radius: number, strength: number) => void;
+    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI', cost: number, value: number) => void;
+    nextStage: () => void;
+    deliverBagToDrain: (id: string) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
-    score: 0, // Current leaves
+    score: 0,
     money: 0,
+    totalLeaves: 10000,
+    totalCollected: 0,
     currentTool: 'HAND',
-    unlockedTools: ['HAND', 'RAKE', 'BLOWER'],
+    unlockedTools: ['HAND', 'RAKE', 'BLOWER', 'VACUUM'],
 
     isInventoryOpen: false,
     isShopOpen: false,
+    isAirVentActive: false,
+    playerPushEvent: null,
+    currentStage: 1,
+    totalLeavesInStage: SCENES[0].goal,
+    bagsDeliveredToDrain: 0,
+    bagsRequiredToClear: 0,
+    objectiveType: 'LEAVES',
+    stageCleared: false,
 
     pickAmount: 1,
     moneyMultiplier: 1.0,
     carriedBagId: null,
+    bagImpulse: null,
     bags: [],
 
     upgrades: {
@@ -68,22 +99,21 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     addLeaf: (amount) => {
         set((state) => {
-            let newScore = state.score + amount;
-            // Check for bag creation (every 100 leaves)
-            // Note: In a real tick, we might want to spawn multiple if vastly over 100, 
-            // but for single click events, usually it creates 1. 
-            // We'll trust the caller to handle position, but here we just manage the count.
-            // Wait, the caller (Tools.tsx) needs to know IF a bag should spawn to determine position.
-            // Let's just create the bag logic here and let caller ask "should I spawn?" or handle it differently.
-            // Revised: We'll just increment score here. The Tools.tsx will check score >= 100 and call createBag.
-            return { score: newScore };
-        });
+            const newScore = state.score + amount;
+            const newTotal = state.totalCollected + amount;
+            const cleared = state.objectiveType === 'LEAVES' && newTotal >= state.totalLeavesInStage;
 
-        // Auto-convert 100 leaves to bag logic could be here, but we need player position.
-        // So we will stick to simple state update here.
+            return {
+                score: newScore,
+                totalCollected: newTotal,
+                stageCleared: state.stageCleared || cleared
+            };
+        });
     },
 
     setCarriedBag: (id) => set({ carriedBagId: id }),
+    triggerBagImpulse: (id, force) => set({ bagImpulse: { id, force } }),
+    clearBagImpulse: () => set({ bagImpulse: null }),
 
     createBag: (position) => set((state) => ({
         bags: [...state.bags, {
@@ -91,7 +121,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             position,
             value: 100
         }],
-        score: state.score - 100 // Deduct cost
+        score: state.score - 100
     })),
 
     removeBag: (id, sold) => set((state) => {
@@ -122,6 +152,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         isShopOpen: !state.isShopOpen,
         isInventoryOpen: false
     })),
+    setAirVentActive: (active) => set({ isAirVentActive: active }),
+    triggerPlayerPush: (pos, radius, strength) => set({
+        playerPushEvent: { pos, radius, strength, timestamp: Date.now() }
+    }),
 
     purchaseUpgrade: (type, cost, value) => set((state) => {
         if (state.money >= cost) {
@@ -131,5 +165,41 @@ export const useGameStore = create<GameState>((set, get) => ({
             return newState;
         }
         return state;
+    }),
+
+    nextStage: () => set((state) => {
+        const nextIndex = state.currentStage; // currentStage is 1-indexed
+        if (nextIndex >= SCENES.length) return state; // No more stages
+
+        const nextScene = SCENES[nextIndex];
+        return {
+            currentStage: state.currentStage + 1,
+            money: state.money + 500, // Completion bonus
+            totalLeavesInStage: nextScene.goalType === 'BAGS' ? 0 : nextScene.goal,
+            bagsRequiredToClear: nextScene.goalType === 'BAGS' ? nextScene.goal : 0,
+            objectiveType: nextScene.goalType || 'LEAVES',
+            bagsDeliveredToDrain: 0,
+            totalCollected: 0,
+            stageCleared: false,
+        };
+    }),
+
+    deliverBagToDrain: (id) => set((state) => {
+        if (state.objectiveType !== 'BAGS') {
+            // Even if not the objective, still sell it
+            state.removeBag(id, true);
+            return state;
+        }
+
+        const newDelivered = state.bagsDeliveredToDrain + 1;
+        const cleared = newDelivered >= state.bagsRequiredToClear;
+
+        // Use the original removeBag logic through get() or set
+        setTimeout(() => get().removeBag(id, true), 0);
+
+        return {
+            bagsDeliveredToDrain: newDelivered,
+            stageCleared: state.stageCleared || cleared
+        };
     }),
 }));

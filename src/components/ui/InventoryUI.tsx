@@ -17,9 +17,9 @@ export function InventoryUI() {
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                        <div className="text-xs uppercase font-bold text-emerald-600 mb-1">Leaves Collected</div>
-                        <div className="text-3xl font-black text-emerald-800">{score}</div>
-                        <div className="text-xs text-emerald-500 mt-1">Make 100 to create a bag</div>
+                        <div className="text-xs uppercase font-bold text-emerald-600 mb-1">Leaves on Hand</div>
+                        <div className="text-3xl font-black text-emerald-800">{score.toLocaleString()}</div>
+                        <div className="text-xs text-emerald-500 mt-1">100 leaves needed for 1 bag</div>
                     </div>
 
                     <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
