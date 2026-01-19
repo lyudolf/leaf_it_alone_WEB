@@ -1,40 +1,41 @@
-# Obstacle Objects MVP (v0.2) - Therapeutic Research Tool
+# Leaf It Alone Web (3D Edition)
 
-An interactive research tool for observing and regulating procedural obstacle objects. The current version features the **FOG** object.
+낙엽을 치우고 정원을 관리하는 3D 시뮬레이션 게임입니다. 도구를 사용하여 낙엽을 모으고, 봉투에 담아 배수구로 배달하세요!
 
-## Run Steps
-1. Install dependencies: `npm install xstate @xstate/react`
-2. Start dev server: `npm run dev`
-3. Open `http://localhost:3000`
+## 실행 방법 (Run Steps)
+1. 의존성 설치: `npm install`
+2. 개발 서버 실행: `npm run dev`
+3. 브라우저에서 `http://localhost:3000` 접속
 
-## Interactions
-- **Arousal**: Fog intensity increases naturally over time (capped at 0.7).
-- **HOLD**: Press and hold on the screen for **1200ms**. A regulatory ring will appear.
-- **RELEASE**: Upon 1200ms completion, fog intensity drops sharply (35% of current), visuals calm, and a blue hue is briefly visible.
-- **DRAG**: Click/touch and move to guide the fog's flow (wind vector).
-- **PANIC**: Immediate neutralization of all stimuli.
+## 조작 방법 (Controls)
+- **이동 (Move)**: `W`, `A`, `S`, `D`
+- **점프 / 봉투 던지기 (Jump / Throw Bag)**: `Space`
+- **도구 선택 (Select Tools)**: 
+  - `1`: 손 (Manual Pick)
+  - `2`: 갈퀴 (Rake)
+  - `3`: 송풍기 (Blower)
+  - `4`: **진공 청소기 (Vacuum)** - *100개 수집 시 자동 봉투 생성!*
+- **UI**:
+  - `I`: 인벤토리 (Inventory)
+  - `U`: 상점 (Shop)
 
-## Tuning Table (FOG)
+## 주요 게임 시스템 (Core Mechanics)
+### 1단계: 뒷마당 청소 (The Backyard)
+- 마당에 떨어진 **1,200개의 낙엽**을 모두 수집하세요.
+- 1단계 클리어 시 펜스 중앙의 게이트가 열리며 새로운 구역으로 확장됩니다.
 
-| Parameter | Default Value | Effect |
+### 2단계: 가을 공원 확장 (Autumn Expansion)
+- 확장된 구역에서 **추가 낙엽 3,000개**가 생성됩니다.
+- 목적이 '수집'에서 '배달'로 바뀝니다. 낙엽 봉투를 **배수구(Drain)**까지 안전하게 옮기세요.
+- **방해꾼 두더지(Mole AI)**가 등장합니다. 두더지는 낙엽이 많이 쌓인 곳을 찾아가 강력한 바람으로 흩뿌려 버리니 주의하세요!
+
+## 주요 기술 명세 (Technical Tuning)
+| 파라미터 | 값 | 설명 |
 |-----------|---------------|--------|
-| `holdMs` | 1200ms | Duration required for a successful RELEASE. |
-| `arousalRate`| 0.05 / sec | Speed at which intensity increases naturally. |
-| `maxStimulus`| 0.7 | Absolute hard cap for all intensity levels. |
-| `releaseDrop`| 0.35 (x) | Multiplying factor applied to intensity upon success. |
-| `windStrength`| 2.5 | Influence of drag gestures on fog drift. |
-| `wobbleMax` | 1.5 | Max vibration of fog blobs at peak intensity. |
+| `VACUUM_AUTO_BAG` | 100 | 청소기 사용 시 자동으로 봉투가 생성되는 낙엽 개수 |
+| `MOLE_CYCLE_TIME` | 3.5s | 두더지의 팝업-대기 사이클 시간 |
+| `STAGE_2_X_LIMIT`| 20.2m | 2단계 낙엽이 1단계 구역으로 넘어가지 않도록 하는 물리 장벽 |
 
-## Acceptance Checklist
-
-- [ ] **Intensity Escalation**: Fog density increases slowly but never crosses 70% threshold.
-- [ ] **Hold/Release Reliability**: Holding for ~1.2s consistently triggers the release effect and intensity drop.
-- [ ] **Wind Control**: Dragging moves the fog blobs in the matching direction.
-- [ ] **Panic Button**: Immediate return to neutral/safe state (hidden/low intensity).
-- [ ] **Neutral Mode**: Visuals appear "softer" and more abstract when toggled ON.
-- [ ] **Safety Compliance**: No raw trauma text or narrative inputs are present.
-
-## Architecture Detail
-- **State Machine**: Driven by XState (`src/machines/fogMachine.ts`).
-- **Visuals**: Procedural InstancedMesh in Three.js (`src/components/objects/FogCloud.tsx`).
-- **Logic**: Decoupled using a `SceneSpec` configuration.
+## 개발 참고 사항
+- **연속성 유지**: 스테이지 이동 시 플레이어의 위치와 집(House) 오브젝트가 유지되어 몰입감을 높였습니다.
+- **물리 엔진**: `@react-three/cannon`을 사용하여 낙엽과 플레이어의 상호작용을 구현했습니다.
