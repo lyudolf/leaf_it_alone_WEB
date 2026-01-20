@@ -5,10 +5,10 @@ import { useBox } from '@react-three/cannon';
 interface PlanterProps {
     position: [number, number, number];
     rotation?: [number, number, number];
-    args: [number, number, number];
+    args?: [number, number, number];
 }
 
-export function Planter({ position, rotation = [0, 0, 0], args }: PlanterProps) {
+export function Planter({ position, rotation = [0, 0, 0], args = [2.2, 0.8, 2.2] }: PlanterProps) {
     const [ref] = useBox(() => ({
         type: 'Static',
         position,

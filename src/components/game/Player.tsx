@@ -12,13 +12,13 @@ const JUMP_FORCE = 5;
 
 export function Player() {
     const { camera } = useThree();
-    const currentStage = useGameStore(s => s.currentStage);
+    // Removed currentStage subscription to prevent potential re-mounting issues during transition
     const [ref, api] = useSphere(() => ({
         mass: 1,
         type: 'Dynamic',
-        position: [0, 1, 0], // Only initial spawn
+        position: [120, 2, 0], // Stage 5 Spawn
         fixedRotation: true,
-        args: [0.35], // Radius
+        args: [0.5], // Radius
         material: { friction: 0, restitution: 0 },
         linearDamping: 0.5
     }));
@@ -57,8 +57,23 @@ export function Player() {
             if (e.code === 'Digit3') setTool('BLOWER');
             if (e.code === 'Digit4') setTool('VACUUM');
 
+            if (e.code === 'KeyE') {
+                if (useGameStore.getState().isIntroOpen) {
+                    useGameStore.getState().closeIntro();
+                    return;
+                }
+                if (useGameStore.getState().isBagTutorialOpen) {
+                    useGameStore.getState().closeBagTutorial();
+                    return;
+                }
+            }
+
+            // Block other inputs if intro/tutorial is open
+            if (useGameStore.getState().isIntroOpen || useGameStore.getState().isBagTutorialOpen) return;
+
             if (e.code === 'KeyI') useGameStore.getState().toggleInventory();
             if (e.code === 'KeyU') useGameStore.getState().toggleShop();
+            if (e.code === 'KeyP') useGameStore.getState().toggleHelp();
 
             // Movement inputs
             switch (e.code) {

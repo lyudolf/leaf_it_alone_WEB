@@ -8,9 +8,10 @@ import * as THREE from 'three';
 interface HouseProps {
     position: [number, number, number];
     scale?: number;
+    extraHeight?: number;
 }
 
-export function House({ position, scale = 1 }: HouseProps) {
+export function House({ position, scale = 1, extraHeight = 0 }: HouseProps) {
     // Load GLB model
     const { scene } = useGLTF('/models/house.glb');
 
@@ -33,10 +34,14 @@ export function House({ position, scale = 1 }: HouseProps) {
 
     // Physics collision box for player and leaves
     // House size refined to match visual footprint better
-    const houseSize: [number, number, number] = [2.2 * scale, 2.0 * scale, 2.2 * scale];
+    // extraHeight allows creating a tall barrier (Stage 5 request)
+    const baseHeight = 2.0 * scale;
+    const finalHeight = baseHeight + extraHeight;
+    const houseSize: [number, number, number] = [2.2 * scale, finalHeight, 2.2 * scale];
+
     const [ref] = useBox(() => ({
         type: 'Static',
-        position: [position[0], position[1] + (houseSize[1] / 2), position[2]],
+        position: [position[0], position[1] + (finalHeight / 2), position[2]],
         args: houseSize,
     }));
 

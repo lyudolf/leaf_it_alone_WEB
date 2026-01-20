@@ -5,10 +5,11 @@ import { useBox } from '@react-three/cannon';
 interface CurbProps {
     position: [number, number, number];
     rotation?: [number, number, number];
-    args: [number, number, number];
+    length?: number;
 }
 
-export function Curb({ position, rotation = [0, 0, 0], args }: CurbProps) {
+export function Curb({ position, rotation = [0, 0, 0], length = 10 }: CurbProps) {
+    const args: [number, number, number] = [0.4, 0.4, length];
     const [ref] = useBox(() => ({
         type: 'Static',
         position,

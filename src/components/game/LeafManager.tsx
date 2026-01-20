@@ -5,13 +5,16 @@ import { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/game/store';
 import { useGLTF } from '@react-three/drei';
+import { ZONES } from '@/spec/zones';
 
-const LEAF_COUNT = 5000;
-const WORLD_SIZE = 80;
+import { SCENES } from '@/spec/scenes';
+
+const LEAF_COUNT = 8000;
+const WORLD_SIZE = 200;
 
 // Custom Physics Parameters
 const GRAVITY = -9.8;
-const FRICTION = 0.9; // Air resistance/ground friction (0.9 = stops quickly)
+const FRICTION = 0.9;
 const GROUND_Y = 0.02;
 
 interface LeafManagerProps {
@@ -22,6 +25,10 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null);
     const { scene: leafModel } = useGLTF('/models/leaf2.glb');
     const currentStage = useGameStore(s => s.currentStage);
+
+    // Wind state (Stage 4)
+    const windVector = useRef(new THREE.Vector3(0, 0, 0));
+    const nextWindChange = useRef(0);
 
     const geometry = useMemo<THREE.BufferGeometry | null>(() => {
         let foundGeom: THREE.BufferGeometry | null = null;
@@ -44,16 +51,63 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
     const velocities = useMemo(() => new Float32Array(LEAF_COUNT * 3), []);
     const rotations = useMemo(() => new Float32Array(LEAF_COUNT * 3), []);
 
+    const isBlocked = (x: number, z: number, stageIdx: number) => {
+        const scene = SCENES[stageIdx];
+        if (!scene) return false;
+
+        // House check - minimal exclusion zone (0.5m)
+        if (scene.house) {
+            const hPos = scene.house.position;
+            const hScale = scene.house.scale;
+            const halfSize = (2.2 * hScale) / 2 + 0.5;
+
+            // Asymmetric blocking: Extend 2m behind (negative Z)
+            const backBias = 2.0;
+            const centerZ = hPos[2] - (backBias / 2);
+            const halfZ = halfSize + (backBias / 2);
+
+            if (Math.abs(x - hPos[0]) < halfSize && Math.abs(z - centerZ) < halfZ) return true;
+        }
+
+        // Tree check - minimal exclusion zone
+        for (const tree of scene.trees) {
+            const tPos = tree.position;
+            const tScale = tree.scale;
+            const distSq = (x - tPos[0]) ** 2 + (z - tPos[2]) ** 2;
+            const radius = 0.8 * tScale; // Minimal exclusion
+            if (distSq < radius * radius) return true;
+        }
+
+        return false;
+    };
+
     // Helper to spawn a leaf at a specific range
-    const spawnLeaf = (idx: number, minX: number, maxX: number) => {
+    const spawnLeaf = (idx: number, minX: number, maxX: number, minZ: number, maxZ: number, isSkyDrop = false) => {
         const dummy = new THREE.Object3D();
-        const x = minX + Math.random() * (maxX - minX);
-        const z = -13 + Math.random() * 26;
-        const y = 5 + Math.random() * 10;
+        let x = 0, z = 0;
+        let found = false;
+        let attempts = 0;
+
+        const stageIdx = currentStage - 1;
+
+        while (!found && attempts < 10) {
+            x = minX + Math.random() * (maxX - minX);
+            z = minZ + Math.random() * (maxZ - minZ);
+            if (!isBlocked(x, z, stageIdx)) {
+                found = true;
+            }
+            attempts++;
+        }
+
+        const y = isSkyDrop ? (8 + Math.random() * 4) : GROUND_Y;
 
         positions[idx * 3] = x;
         positions[idx * 3 + 1] = y;
         positions[idx * 3 + 2] = z;
+
+        velocities[idx * 3] = 0;
+        velocities[idx * 3 + 1] = isSkyDrop ? -1 : 0;
+        velocities[idx * 3 + 2] = 0;
 
         rotations[idx * 3] = (Math.random() - 0.5) * 0.5;
         rotations[idx * 3 + 1] = Math.random() * Math.PI * 2;
@@ -76,23 +130,64 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             meshRef.current?.setMatrixAt(i, dummy.matrix);
         }
 
-        // Spawn Stage 1 Leaves (0 - 1199)
-        for (let i = 0; i < 1200; i++) {
-            spawnLeaf(i, -18, 18);
+        // Spawn leaves for current stage only (for testing)
+        if (currentStage === 1) {
+            const zone1 = ZONES.zone1;
+            for (let i = 0; i < 500; i++) {
+                spawnLeaf(i, zone1.minX + 2, zone1.maxX - 2, zone1.minZ + 2, zone1.maxZ - 2);
+            }
+        } else {
+            // If starting at a later stage, spawn only that stage's leaves
+            const zone = ZONES[`zone${currentStage}`];
+            if (zone) {
+                const config = [
+                    { start: 0, end: 500 },    // S1
+                    { start: 500, end: 1700 }, // S2
+                    { start: 1700, end: 4200 },// S3
+                    { start: 4200, end: 6200 },// S4
+                    { start: 6200, end: 8000 },// S5
+                ];
+                const { start, end } = config[currentStage - 1];
+                const margin = currentStage === 5 ? 0.5 : 2; // Smaller margin for stage 5 (closer to fences)
+                for (let i = start; i < end; i++) {
+                    spawnLeaf(i, zone.minX + margin, zone.maxX - margin, zone.minZ + margin, zone.maxZ - margin);
+                }
+            }
         }
 
         if (meshRef.current) meshRef.current.instanceMatrix.needsUpdate = true;
     }, []);
 
-    // Stage 2 Expansion Spawn
+    // Sky Drop logic for new stages
     useEffect(() => {
-        if (currentStage === 2) {
-            console.log('[LeafManager] Spawning Stage 2 leaves...');
-            // Spawn additional 3000 leaves (1200 - 4199) in the new area (X > 20)
-            for (let i = 1200; i < 4200; i++) {
-                spawnLeaf(i, 22, 58);
-            }
-            if (meshRef.current) meshRef.current.instanceMatrix.needsUpdate = true;
+        if (currentStage > 1) {
+            const zone = ZONES[`zone${currentStage}`];
+            if (!zone) return;
+
+            // Define spawn pool based on stage
+            const config = [
+                { start: 0, end: 500 },    // S1
+                { start: 500, end: 1700 }, // S2 (+1200)
+                { start: 1700, end: 4200 },// S3 (+2500)
+                { start: 4200, end: 6200 },// S4 (+2000)
+                { start: 6200, end: 8000 },// S5 (+1800)
+            ];
+
+            const { start, end } = config[currentStage - 1];
+
+            // Sequential sky drops over 5 seconds
+            let currentIdx = start;
+            const dropInterval = setInterval(() => {
+                const batchSize = Math.ceil((end - start) / 50); // ~50 batches over 5s
+                for (let i = 0; i < batchSize && currentIdx < end; i++) {
+                    spawnLeaf(currentIdx, zone.minX + 0.5, zone.maxX - 0.5, zone.minZ + 0.5, zone.maxZ - 0.5, true);
+                    currentIdx++;
+                }
+                if (meshRef.current) meshRef.current.instanceMatrix.needsUpdate = true;
+                if (currentIdx >= end) clearInterval(dropInterval);
+            }, 100);
+
+            return () => clearInterval(dropInterval);
         }
     }, [currentStage]);
 
@@ -102,86 +197,114 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
 
         const dummy = new THREE.Object3D();
         let needsUpdate = false;
-
-        // Optimize: Small delta cap to prevent explosion on lag
         const dt = Math.min(delta, 0.05);
+        const now = state.clock.elapsedTime;
+
+        // Stage 4 Windy Weather
+        if (currentStage === 4) {
+            if (now > nextWindChange.current) {
+                const angle = Math.random() * Math.PI * 2;
+                const strength = 1.0 + Math.random() * 2.0;
+                windVector.current.set(Math.cos(angle) * strength, 0, Math.sin(angle) * strength);
+                nextWindChange.current = now + 20 + Math.random() * 10;
+            }
+        } else {
+            windVector.current.set(0, 0, 0);
+        }
+
+        const currentZone = ZONES[`zone${currentStage}`] || ZONES.zone1;
 
         for (let i = 0; i < LEAF_COUNT; i++) {
             const idx = i * 3;
+            if (positions[idx + 1] < -100) continue; // Skip collected leaves
+
             let vx = velocities[idx];
             let vy = velocities[idx + 1];
             let vz = velocities[idx + 2];
 
-            // Skip if sleeping (very low velocity and on ground)
-            if (Math.abs(vx) < 0.01 && Math.abs(vy) < 0.01 && Math.abs(vz) < 0.01 && positions[idx + 1] <= GROUND_Y + 0.01) {
-                continue;
-            }
-
-            // Apply Gravity
             if (positions[idx + 1] > GROUND_Y) {
                 vy += GRAVITY * dt;
+                vx += windVector.current.x * dt * 0.5;
+                vz += windVector.current.z * dt * 0.5;
             }
 
-            // Apply Velocity
             positions[idx] += vx * dt;
             positions[idx + 1] += vy * dt;
             positions[idx + 2] += vz * dt;
 
-            // Fence Boundary Clamping (prevent leaves from escaping)
-            // Stage 1: X[-19.5, 19.5]
-            // Stage 2: X[20.2, 59.5] -> This keeps Stage 2 leaves in Area 2
-            const FENCE_MIN_X = currentStage === 1 ? -19.5 : 20.2;
-            const FENCE_MAX_X = currentStage === 1 ? 19.5 : 59.5;
-            const FENCE_MIN_Z = -14.5;
-            const FENCE_MAX_Z = 14.5;
-
-            if (positions[idx] < FENCE_MIN_X) {
-                positions[idx] = FENCE_MIN_X;
+            // Zone Containment
+            if (positions[idx] < currentZone.minX) {
+                positions[idx] = currentZone.minX;
                 velocities[idx] = 0;
-            } else if (positions[idx] > FENCE_MAX_X) {
-                positions[idx] = FENCE_MAX_X;
+            } else if (positions[idx] > currentZone.maxX) {
+                positions[idx] = currentZone.maxX;
                 velocities[idx] = 0;
             }
 
-            if (positions[idx + 2] < FENCE_MIN_Z) {
-                positions[idx + 2] = FENCE_MIN_Z;
+            if (positions[idx + 2] < currentZone.minZ) {
+                positions[idx + 2] = currentZone.minZ;
                 velocities[idx + 2] = 0;
-            } else if (positions[idx + 2] > FENCE_MAX_Z) {
-                positions[idx + 2] = FENCE_MAX_Z;
+            } else if (positions[idx + 2] > currentZone.maxZ) {
+                positions[idx + 2] = currentZone.maxZ;
                 velocities[idx + 2] = 0;
             }
 
-            // House Boundary (prevent leaves from entering house)
-            // House at [-15, 0, -10], scale 4, size ~8.8m x 8.8m (2.2 * 4)
-            const HOUSE_MIN_X = -19.4;
-            const HOUSE_MAX_X = -10.6;
-            const HOUSE_MIN_Z = -14.4;
-            const HOUSE_MAX_Z = -5.6;
+            // House and Tree Collision Detection
+            const scene = SCENES[currentStage - 1];
+            if (scene) {
+                // House collision
+                if (scene.house) {
+                    const hPos = scene.house.position;
+                    const hScale = scene.house.scale;
+                    const halfSize = (2.2 * hScale) / 2;
 
-            const isInHouse = positions[idx] >= HOUSE_MIN_X && positions[idx] <= HOUSE_MAX_X &&
-                positions[idx + 2] >= HOUSE_MIN_Z && positions[idx + 2] <= HOUSE_MAX_Z;
+                    // Asymmetric blocking: Extend 2m behind (negative Z)
+                    const backBias = 2.0;
+                    const centerZ = hPos[2] - (backBias / 2);
+                    const halfZ = halfSize + (backBias / 2);
 
-            if (isInHouse) {
-                // Push leaf out to nearest edge
-                const distToLeft = Math.abs(positions[idx] - HOUSE_MIN_X);
-                const distToRight = Math.abs(positions[idx] - HOUSE_MAX_X);
-                const distToFront = Math.abs(positions[idx + 2] - HOUSE_MIN_Z);
-                const distToBack = Math.abs(positions[idx + 2] - HOUSE_MAX_Z);
+                    // Check collision with biased box
+                    if (Math.abs(positions[idx] - hPos[0]) < halfSize &&
+                        Math.abs(positions[idx + 2] - centerZ) < halfZ &&
+                        positions[idx + 1] < 2.0 * hScale) { // Below house height
 
-                const minDist = Math.min(distToLeft, distToRight, distToFront, distToBack);
+                        // Push leaf out of house (using biased center)
+                        const dx = positions[idx] - hPos[0];
+                        const dz = positions[idx + 2] - centerZ;
 
-                if (minDist === distToLeft) {
-                    positions[idx] = HOUSE_MIN_X - 0.1;
-                    velocities[idx] = 0;
-                } else if (minDist === distToRight) {
-                    positions[idx] = HOUSE_MAX_X + 0.1;
-                    velocities[idx] = 0;
-                } else if (minDist === distToFront) {
-                    positions[idx + 2] = HOUSE_MIN_Z - 0.1;
-                    velocities[idx + 2] = 0;
-                } else {
-                    positions[idx + 2] = HOUSE_MAX_Z + 0.1;
-                    velocities[idx + 2] = 0;
+                        if (Math.abs(dx) > Math.abs(dz)) { // Only if relatively closer to side
+                            // Push to side
+                            positions[idx] = hPos[0] + (dx > 0 ? halfSize : -halfSize);
+                            velocities[idx] = 0;
+                        } else {
+                            // Push to front/back (using biased z-edges)
+                            positions[idx + 2] = centerZ + (dz > 0 ? halfZ : -halfZ);
+                            velocities[idx + 2] = 0;
+                        }
+                    }
+                }
+
+                // Tree collision
+                for (const tree of scene.trees) {
+                    const tPos = tree.position;
+                    const tScale = tree.scale;
+                    const dx = positions[idx] - tPos[0];
+                    const dz = positions[idx + 2] - tPos[2];
+                    const distSq = dx * dx + dz * dz;
+                    const radius = 0.4 * tScale; // Trunk radius
+
+                    if (distSq < radius * radius && positions[idx + 1] < 4 * tScale) {
+                        // Push leaf out of tree trunk
+                        const dist = Math.sqrt(distSq);
+                        if (dist > 0.01) {
+                            const pushX = (dx / dist) * radius;
+                            const pushZ = (dz / dist) * radius;
+                            positions[idx] = tPos[0] + pushX;
+                            positions[idx + 2] = tPos[2] + pushZ;
+                            velocities[idx] = 0;
+                            velocities[idx + 2] = 0;
+                        }
+                    }
                 }
             }
 
@@ -189,39 +312,25 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             if (positions[idx + 1] <= GROUND_Y) {
                 positions[idx + 1] = GROUND_Y;
                 vy = 0;
-
-                // Strong ground friction
                 vx *= 0.8;
                 vz *= 0.8;
-
-                // Flatten rotation on ground
-                // Smoothly interpolate towards flat orientation (X-axis 90 deg or 0 depending on geometry)
-                // Our procedural geometry is rotated X 90, so local 0,0,0 is flat.
-                // But let's just damping rotation to 0,0,0 (flat) when on ground
-                rotations[idx] *= 0.9;     // Dampen X tilt
-                rotations[idx + 2] *= 0.9; // Dampen Z tilt
-                // Y rotation (spin) can stay
+                rotations[idx] *= 0.9;
+                rotations[idx + 2] *= 0.9;
             } else {
-                // Air resistance
-                vx *= 0.98;
-                vz *= 0.98;
-
-                // Add some tumble in air
+                vx *= 0.99;
+                vz *= 0.99;
                 rotations[idx] += vx * 0.1;
                 rotations[idx + 2] += vz * 0.1;
             }
 
-            // Store Updated Velocity
             velocities[idx] = vx;
             velocities[idx + 1] = vy;
             velocities[idx + 2] = vz;
 
-            // Update Instance Matrix
             dummy.position.set(positions[idx], positions[idx + 1], positions[idx + 2]);
             dummy.rotation.set(rotations[idx], rotations[idx + 1], rotations[idx + 2]);
             dummy.updateMatrix();
             meshRef.current.setMatrixAt(i, dummy.matrix);
-
             needsUpdate = true;
         }
 
@@ -230,24 +339,19 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
         }
     });
 
-    // Custom API for Tools to interact with raw data
-    // This replaces the Cannon.js API
     const customApi = useMemo(() => ({
         count: LEAF_COUNT,
         positions: positions,
         velocities: velocities,
-        // Helper to apply force to a specific leaf
         applyImpulse: (index: number, force: [number, number, number]) => {
             const idx = index * 3;
             velocities[idx] += force[0];
             velocities[idx + 1] += force[1];
             velocities[idx + 2] += force[2];
-            // "Wake up" logic is implicit: if velocity > 0, the loop processes it
         },
-        wakeUp: () => { } // No-op, handled by velocity check
+        wakeUp: () => { }
     }), [positions, velocities]);
 
-    // Expose API
     useEffect(() => {
         if (onLeafApiReady && meshRef.current) {
             onLeafApiReady(customApi, meshRef as React.RefObject<THREE.InstancedMesh>);
@@ -273,7 +377,7 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
         <instancedMesh
             ref={meshRef}
             args={[geometry, undefined, LEAF_COUNT]}
-            frustumCulled={false} // Prevent culling issues with custom moved instances
+            frustumCulled={false}
         >
             <primitive object={geometry} attach="geometry">
                 <instancedBufferAttribute attach="attributes-color" args={[colors, 3]} />
@@ -283,5 +387,4 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
     );
 }
 
-// Preload the model
 useGLTF.preload('/models/leaf2.glb');

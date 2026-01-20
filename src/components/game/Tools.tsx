@@ -87,7 +87,7 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
                 const intersects = raycaster.intersectObjects(scene.children, true);
 
                 // Find first valid hit
-                const hit = intersects.find(i => i.distance < 3 && i.object.name.startsWith('bag-'));
+                const hit = intersects.find(i => i.distance < 5 && i.object.name.startsWith('bag-'));
 
                 if (hit) {
                     const bagId = hit.object.name.replace('bag-', '');
@@ -138,58 +138,66 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
                 }
 
                 if (closestIdx !== -1) {
-                    // Pick up specific amount
-                    // We need to remove multiple leaves?
-                    // MVP: Just remove ONE visual leaf but add 'pickAmount' to score.
-                    // Ideally we remove 'pickAmount' leaves nearby.
+                    if (pickAmount === 100) {
+                        // Special: Instant Bag Creation
+                        const spawnPos = new THREE.Vector3(positions[closestIdx * 3], 0.5, positions[closestIdx * 3 + 2]);
+                        const bagId = Math.random().toString(36).substr(2, 9);
 
-                    // Let's implement multi-removal.
-                    const targetIndices = [closestIdx];
+                        // 1. Add score and progress
+                        addLeaf(100);
 
-                    if (pickAmount > 1) {
-                        // Find neighbors
+                        // 2. Create the bag entity
+                        createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
+
+                        // Trigger Tutorial
+                        useGameStore.getState().triggerBagTutorial();
+
+                        // 3. Immediately carry it
+                        setCarriedBag(bagId);
+
+                        // 4. Remove ground leaves (visual consumption)
+                        const targetIndices = [closestIdx];
                         const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
                         for (let i = 0; i < leafApi.count; i++) {
                             if (i === closestIdx) continue;
-                            if (targetIndices.length >= pickAmount) break;
-
+                            if (targetIndices.length >= 100) break;
                             p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                            if (p.distanceTo(centerP) < 1.0) {
+                            if (p.distanceTo(centerP) < 2.5) { // Slightly larger radius for 100 leaves
                                 targetIndices.push(i);
                             }
                         }
-                    }
+                        targetIndices.forEach(idx => {
+                            positions[idx * 3 + 1] = -1000;
+                            const dummy = new THREE.Object3D();
+                            dummy.position.set(0, -1000, 0);
+                            dummy.updateMatrix();
+                            leafRef.current?.setMatrixAt(idx, dummy.matrix);
+                        });
+                        if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
+                    } else {
+                        // Normal removal
+                        const targetIndices = [closestIdx];
+                        if (pickAmount > 1) {
+                            const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
+                            for (let i = 0; i < leafApi.count; i++) {
+                                if (i === closestIdx) continue;
+                                if (targetIndices.length >= pickAmount) break;
+                                p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+                                if (p.distanceTo(centerP) < 1.0) {
+                                    targetIndices.push(i);
+                                }
+                            }
+                        }
 
-                    // Remove them
-                    targetIndices.forEach(idx => {
-                        // Move to underworld
-                        positions[idx * 3 + 1] = -1000;
-                        leafApi.velocities[idx * 3 + 1] = 0;
-                        // Force visual update to hide it immediately
-                        const dummy = new THREE.Object3D();
-                        dummy.position.set(0, -1000, 0);
-                        dummy.scale.set(0, 0, 0);
-                        dummy.updateMatrix();
-                        leafRef.current.setMatrixAt(idx, dummy.matrix);
-                    });
-                    if (leafRef.current) {
-                        leafRef.current.instanceMatrix.needsUpdate = true;
-                    }
-
-                    // Add score
-                    addLeaf(targetIndices.length); // Actual collected count
-
-                    // Check for Bag Spawn
-                    // We need to check the CURRENT score in store (synchronously if possible, or assume state is fresh)
-                    const currentScore = useGameStore.getState().score;
-                    if (currentScore >= 100) {
-                        // Spawn Bag in front of player
-                        const spawnPos = new THREE.Vector3(0, 0, -1.2);
-                        spawnPos.applyQuaternion(camera.quaternion);
-                        spawnPos.add(camera.position);
-                        spawnPos.y = Math.max(0.5, spawnPos.y); // Keep above ground
-
-                        createBag([spawnPos.x, spawnPos.y, spawnPos.z]);
+                        targetIndices.forEach(idx => {
+                            positions[idx * 3 + 1] = -1000;
+                            const dummy = new THREE.Object3D();
+                            dummy.position.set(0, -1000, 0);
+                            dummy.updateMatrix();
+                            leafRef.current?.setMatrixAt(idx, dummy.matrix);
+                        });
+                        if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
+                        addLeaf(targetIndices.length);
                     }
                 }
             }

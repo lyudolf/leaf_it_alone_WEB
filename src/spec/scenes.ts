@@ -3,63 +3,87 @@ export interface SceneConfig {
     goal: number;
     goalType?: 'LEAVES' | 'BAGS';
     groundSize: [number, number];
-    isExpansion?: boolean;
+    trashBins: { position: [number, number, number]; scale?: number; rotation?: [number, number, number] }[];
     house?: { position: [number, number, number]; scale: number };
     trees: { position: [number, number, number]; scale: number }[];
     vents: { position: [number, number, number]; radius: number; strength: number }[];
-    curbs?: { position: [number, number, number]; rotation: [number, number, number]; args: [number, number, number] }[];
-    planters?: { position: [number, number, number]; rotation: [number, number, number]; args: [number, number, number] }[];
-    drains?: { position: [number, number, number] }[];
+    curbs?: { position: [number, number, number]; rotation: [number, number, number]; length: number }[];
+    planters?: { position: [number, number, number]; rotation: [number, number, number] }[];
+    drains?: { position: [number, number, number]; radius: number }[];
+    moles?: { position: [number, number, number] }[];
 }
 
 export const SCENES: SceneConfig[] = [
     {
-        name: "집 뒤뜰 (The Backyard)",
-        goal: 1200,
+        name: "Stage 1: 평화로운 마당 (The Backyard)",
+        goal: 500,
         goalType: 'LEAVES',
-        groundSize: [80, 30],
-        house: { position: [-15, 0, -10], scale: 4 },
+        groundSize: [30, 24],
+        trashBins: [{ position: [12, 0, 9] }],
+        house: { position: [-12, 0, -8], scale: 3.5 },
         trees: [
-            { position: [8, 0, -8], scale: 1.2 },
-            { position: [10, 0, 5], scale: 1.0 },
-            { position: [-8, 0, -5], scale: 1.1 },
-            { position: [-10, 0, 10], scale: 0.9 },
+            { position: [5, 0, -6], scale: 1.0 },
+            { position: [-5, 0, 8], scale: 1.2 },
+            { position: [8, 0, 9], scale: 0.7 },
         ],
         vents: []
     },
     {
-        name: "확장된 가을 정원 (Autumn Expansion)",
-        goal: 3,
-        goalType: 'BAGS',
-        groundSize: [80, 30],
-        isExpansion: true,
-        house: { position: [-15, 0, -10], scale: 4 },
+        name: "Stage 2: 확장된 정원 (Garden Extension)",
+        goal: 1200,
+        goalType: 'LEAVES',
+        groundSize: [30, 24],
+        trashBins: [{ position: [42, 0, 9] }],
+        house: { position: [18, 0, -8], scale: 3.5 },
         trees: [
-            // Stage 1 trees (preserved)
-            { position: [8, 0, -8], scale: 1.2 },
-            { position: [10, 0, 5], scale: 1.0 },
-            { position: [-8, 0, -5], scale: 1.1 },
-            { position: [-10, 0, 10], scale: 0.9 },
-            // Stage 2 new trees
-            { position: [25, 0, -5], scale: 1.5 },
-            { position: [35, 0, 8], scale: 1.4 },
-            { position: [45, 0, -10], scale: 1.2 },
-            { position: [55, 0, 5], scale: 1.3 },
+            { position: [25, 0, -7], scale: 1.5 },
+            { position: [35, 0, 6], scale: 1.1 },
+            { position: [42, 0, -4], scale: 1.4 },
         ],
-        vents: [
-            { position: [40, 0, 0], radius: 4, strength: 20 }
+        vents: [{ position: [30, 0, 0], radius: 3, strength: 15 }],
+        curbs: [{ position: [30, 0, -11], rotation: [0, 0, 0], length: 30 }],
+        planters: [{ position: [25, 0, -9], rotation: [0, 0, 0] }],
+
+    },
+    {
+        name: "Stage 3: 공원의 시작 (Park Entrance)",
+        goal: 2500,
+        goalType: 'LEAVES',
+        groundSize: [30, 24],
+        trashBins: [{ position: [72, 0, 9] }],
+        house: { position: [48, 0, -8], scale: 3.5 },
+        trees: [
+            { position: [60, 0, -4], scale: 1.8 },
+            { position: [70, 0, 8], scale: 1.5 },
         ],
-        curbs: [
-            { position: [20, 0.05, 0], rotation: [0, 0, 0], args: [0.2, 0.1, 15] },
-            { position: [40, 0.05, 0], rotation: [0, 0, 0], args: [0.2, 0.1, 15] },
+        vents: [{ position: [60, 0, 4], radius: 3, strength: 15 }]
+    },
+    {
+        name: "Stage 4: 바람 부는 광장 (Windy Plaza)",
+        goal: 2000,
+        goalType: 'LEAVES', // Changed from BAGS to LEAVES
+        groundSize: [30, 24],
+        trashBins: [
+            { position: [78, 0, -9] }, // Bottom Left
+            { position: [102, 0, 9] }  // Top Right
         ],
-        planters: [
-            { position: [25, 0.225, 12], rotation: [0, 0, 0], args: [3.0, 0.45, 1.0] },
-            { position: [55, 0.225, -12], rotation: [0, 0, 0], args: [2.0, 0.45, 2.0] },
+        house: { position: [78, 0, -8], scale: 3.5 },
+        trees: [{ position: [90, 0, 0], scale: 2.2 }],
+        vents: [{ position: [85, 0, -4], radius: 4, strength: 18 }],
+        drains: [{ position: [103, 0, -10], radius: 1.0 }] // Bottom-right corner (away from bins/house)
+    },
+    {
+        name: "Stage 5: 토네이도 경보 (Tornado Zone)",
+        goal: 1800,
+        goalType: 'LEAVES', // Changed from BAGS to LEAVES
+        groundSize: [30, 24],
+        trashBins: [
+            { position: [108, 0, -9], scale: 0.5, rotation: [0, Math.PI, 0] }, // Bottom Left - Smaller & Rotated
+            { position: [132, 0, 9], scale: 0.5, rotation: [0, Math.PI, 0] }  // Top Right - Smaller & Rotated
         ],
-        drains: [
-            { position: [55, 0.01, 10] },
-            { position: [35, 0.01, -12] }
-        ]
+        house: { position: [108, 0, -8], scale: 3.5 },
+        trees: [], // No trees in Stage 5
+        vents: [{ position: [115, 0, 0], radius: 5, strength: 20 }],
+        drains: [{ position: [120, 0, 0], radius: 1.0 }] // Center of Stage 5
     }
 ];

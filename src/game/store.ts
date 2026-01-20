@@ -14,26 +14,31 @@ export interface Upgrades {
 interface GameState {
     score: number;
     money: number;
+    processedLeavesTotal: number; // Cumulative across all stages
     totalLeaves: number;
-    totalCollected: number; // For progress tracking
+    totalCollected: number; // Current stage progress
     currentTool: ToolType;
     unlockedTools: ToolType[];
 
     // UI State
     isInventoryOpen: boolean;
     isShopOpen: boolean;
+    isHelpOpen: boolean;
     isAirVentActive: boolean;
     playerPushEvent: { pos: [number, number, number], radius: number, strength: number, timestamp: number } | null;
     currentStage: number;
-    totalLeavesInStage: number;
+    totalLeavesInStage: number; // goal
     bagsDeliveredToDrain: number;
     bagsRequiredToClear: number;
     objectiveType: 'LEAVES' | 'BAGS';
+    interactionPrompt: string | null;
     stageCleared: boolean;
+    toasts: { id: string; message: string }[];
+    tornadoPosition: [number, number, number] | null; // Tornado position for Stage 5
 
     // Game Logic State
-    pickAmount: number; // 1 -> 3 -> 5 -> 10
-    moneyMultiplier: number; // 1.0 -> 1.2 -> 1.5 -> 2.0
+    pickAmount: number; // 1, 3, 5, 10, 50, 100
+    moneyMultiplier: number; // 1, 2, 3
     carriedBagId: string | null;
     bagImpulse: { id: string; force: [number, number, number] } | null;
 
@@ -43,45 +48,59 @@ interface GameState {
     // Upgrade State
     upgrades: Upgrades;
 
-
-
     // Actions
     addLeaf: (amount: number) => void;
-    createBag: (position: [number, number, number]) => void;
+    createBag: (position: [number, number, number], id?: string) => void;
     removeBag: (id: string, sold: boolean) => void;
     setCarriedBag: (id: string | null) => void;
     triggerBagImpulse: (id: string, force: [number, number, number]) => void;
-    clearBagImpulse: () => void; // Used by Bag component to consume the event
+    clearBagImpulse: () => void;
 
     setTool: (tool: ToolType) => void;
     unlockTool: (tool: ToolType) => void;
     toggleInventory: () => void;
     toggleShop: () => void;
+    toggleHelp: () => void;
+    isIntroOpen: boolean;
+    closeIntro: () => void;
+    isBagTutorialOpen: boolean;
+    triggerBagTutorial: () => void;
+    closeBagTutorial: () => void;
+    hasSeenBagTutorial: boolean;
+    isStageLoading: boolean;
+    setStageLoading: (loading: boolean) => void;
     setAirVentActive: (active: boolean) => void;
     triggerPlayerPush: (pos: [number, number, number], radius: number, strength: number) => void;
-    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI', cost: number, value: number) => void;
+    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI' | 'RAKE' | 'BLOWER', cost: number, value: number) => void;
+    setInteractionPrompt: (prompt: string | null) => void;
+    setTornadoPosition: (pos: [number, number, number] | null) => void;
     nextStage: () => void;
     deliverBagToDrain: (id: string) => void;
+    addToast: (message: string) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
     score: 0,
     money: 0,
+    processedLeavesTotal: 0,
     totalLeaves: 10000,
     totalCollected: 0,
     currentTool: 'HAND',
-    unlockedTools: ['HAND', 'RAKE', 'BLOWER', 'VACUUM'],
+    unlockedTools: ['HAND'],
 
     isInventoryOpen: false,
     isShopOpen: false,
     isAirVentActive: false,
     playerPushEvent: null,
-    currentStage: 1,
+    currentStage: 5, // Start at Stage 5 for testing
     totalLeavesInStage: SCENES[0].goal,
     bagsDeliveredToDrain: 0,
     bagsRequiredToClear: 0,
     objectiveType: 'LEAVES',
+    interactionPrompt: null,
     stageCleared: false,
+    toasts: [],
+    tornadoPosition: null,
 
     pickAmount: 1,
     moneyMultiplier: 1.0,
@@ -101,7 +120,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         set((state) => {
             const newScore = state.score + amount;
             const newTotal = state.totalCollected + amount;
-            const cleared = state.objectiveType === 'LEAVES' && newTotal >= state.totalLeavesInStage;
+            const isLeavesTask = state.objectiveType === 'LEAVES';
+            const cleared = isLeavesTask && newTotal >= state.totalLeavesInStage;
 
             return {
                 score: newScore,
@@ -115,23 +135,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     triggerBagImpulse: (id, force) => set({ bagImpulse: { id, force } }),
     clearBagImpulse: () => set({ bagImpulse: null }),
 
-    createBag: (position) => set((state) => ({
-        bags: [...state.bags, {
-            id: Math.random().toString(36).substr(2, 9),
-            position,
-            value: 100
-        }],
-        score: state.score - 100
-    })),
+    createBag: (position, id) => set((state) => {
+        const bagId = id || Math.random().toString(36).substr(2, 9);
+        return {
+            bags: [...state.bags, {
+                id: bagId,
+                position,
+                value: 100
+            }],
+            score: state.score - 100
+        };
+    }),
 
     removeBag: (id, sold) => set((state) => {
         if (sold) {
             const bag = state.bags.find(b => b.id === id);
             if (bag) {
-                const payout = Math.floor(bag.value * 1 * state.moneyMultiplier);
+                const payout = Math.floor(bag.value * state.moneyMultiplier);
+                const newProcessed = state.processedLeavesTotal + bag.value;
+
+                // Check if Stage goal (processed leaves) met
+                const isBagTask = state.objectiveType === 'BAGS';
+                const currentGoal = state.totalLeavesInStage;
+                const cleared = isBagTask && newProcessed >= currentGoal;
+
                 return {
                     bags: state.bags.filter(b => b.id !== id),
-                    money: state.money + payout
+                    money: state.money + payout,
+                    processedLeavesTotal: newProcessed,
+                    bagsDeliveredToDrain: state.bagsDeliveredToDrain + 1,
+                    stageCleared: state.stageCleared || cleared
                 };
             }
         }
@@ -152,6 +185,27 @@ export const useGameStore = create<GameState>((set, get) => ({
         isShopOpen: !state.isShopOpen,
         isInventoryOpen: false
     })),
+
+    isHelpOpen: false,
+    toggleHelp: () => set((state) => ({ isHelpOpen: !state.isHelpOpen })),
+
+    isIntroOpen: true,
+    closeIntro: () => set({ isIntroOpen: false }),
+
+    isBagTutorialOpen: false,
+    hasSeenBagTutorial: false,
+    triggerBagTutorial: () => set((state) => {
+        if (!state.hasSeenBagTutorial) {
+            return { isBagTutorialOpen: true, hasSeenBagTutorial: true };
+        }
+        return {};
+    }),
+
+    closeBagTutorial: () => set({ isBagTutorialOpen: false }),
+
+    isStageLoading: false,
+    setStageLoading: (loading) => set({ isStageLoading: loading }),
+
     setAirVentActive: (active) => set({ isAirVentActive: active }),
     triggerPlayerPush: (pos, radius, strength) => set({
         playerPushEvent: { pos, radius, strength, timestamp: Date.now() }
@@ -167,39 +221,52 @@ export const useGameStore = create<GameState>((set, get) => ({
         return state;
     }),
 
-    nextStage: () => set((state) => {
-        const nextIndex = state.currentStage; // currentStage is 1-indexed
-        if (nextIndex >= SCENES.length) return state; // No more stages
+    setInteractionPrompt: (prompt) => set({ interactionPrompt: prompt }),
+    setTornadoPosition: (pos) => set({ tornadoPosition: pos }),
+    nextStage: () => {
+        const state = get();
+        const nextIndex = state.currentStage; // 1-indexed
+        if (nextIndex >= SCENES.length) {
+            state.addToast("최종 스테이지 클리어! 모든 구역이 개방되었습니다.");
+            return;
+        }
 
         const nextScene = SCENES[nextIndex];
-        return {
+        const unlockMessage = nextIndex === 1 ? "Stage 2 오픈! 두더지 출현 + 갈퀴 해금" :
+            nextIndex === 2 ? "Stage 3 오픈! 송풍기 해금" :
+                nextIndex === 3 ? "Stage 4 오픈! 바람 부는 날씨" :
+                    "Stage 5 오픈! 토네이도 발생";
+
+        state.addToast(unlockMessage);
+
+        set({
             currentStage: state.currentStage + 1,
-            money: state.money + 500, // Completion bonus
-            totalLeavesInStage: nextScene.goalType === 'BAGS' ? 0 : nextScene.goal,
-            bagsRequiredToClear: nextScene.goalType === 'BAGS' ? nextScene.goal : 0,
+            totalLeavesInStage: nextScene.goal,
             objectiveType: nextScene.goalType || 'LEAVES',
             bagsDeliveredToDrain: 0,
             totalCollected: 0,
+            processedLeavesTotal: 0,
             stageCleared: false,
-        };
-    }),
+        });
 
-    deliverBagToDrain: (id) => set((state) => {
-        if (state.objectiveType !== 'BAGS') {
-            // Even if not the objective, still sell it
-            state.removeBag(id, true);
-            return state;
-        }
+        // Auto unlock tools
+        if (nextIndex === 1) get().unlockTool('RAKE');
+        if (nextIndex === 2) get().unlockTool('BLOWER');
+    },
 
-        const newDelivered = state.bagsDeliveredToDrain + 1;
-        const cleared = newDelivered >= state.bagsRequiredToClear;
+    deliverBagToDrain: (id) => {
+        get().removeBag(id, true);
+    },
 
-        // Use the original removeBag logic through get() or set
-        setTimeout(() => get().removeBag(id, true), 0);
-
-        return {
-            bagsDeliveredToDrain: newDelivered,
-            stageCleared: state.stageCleared || cleared
-        };
-    }),
+    addToast: (message) => {
+        const id = Math.random().toString(36).substr(2, 9);
+        set((state) => ({
+            toasts: [...state.toasts, { id, message }]
+        }));
+        setTimeout(() => {
+            set((state) => ({
+                toasts: state.toasts.filter(t => t.id !== id)
+            }));
+        }, 3000);
+    }
 }));

@@ -8,10 +8,11 @@ import { useGameStore } from '@/game/store';
 
 interface TrashBinProps {
     position: [number, number, number];
+    rotation?: [number, number, number];
     scale?: number;
 }
 
-export function TrashBin({ position, scale = 1 }: TrashBinProps) {
+export function TrashBin({ position, rotation = [0, 0, 0], scale = 1 }: TrashBinProps) {
     const removeBag = useGameStore(s => s.removeBag);
 
     // Load GLB model
@@ -39,6 +40,7 @@ export function TrashBin({ position, scale = 1 }: TrashBinProps) {
     const [ref] = useBox(() => ({
         type: 'Static',
         position: [position[0], position[1] + binHeight / 2, position[2]],
+        rotation: rotation,
         args: [1.5 * scale, binHeight, 1.5 * scale], // Slightly larger for easier hit
         userData: { type: 'bin' }, // Tag for collision detection
         onCollide: (e) => {
@@ -53,7 +55,7 @@ export function TrashBin({ position, scale = 1 }: TrashBinProps) {
     }));
 
     return (
-        <group position={position}>
+        <group position={position} rotation={new THREE.Euler(...rotation)}>
             {/* GLB Model */}
             <primitive object={clonedScene} scale={scale} />
 

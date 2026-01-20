@@ -13,6 +13,7 @@ import { TrashBin } from '@/game/TrashBin';
 import { LeafBag } from '@/game/LeafBag';
 import { useGameStore } from '@/game/store';
 import { SCENES } from '@/spec/scenes';
+import { DebugTool } from './DebugTool';
 
 // Environment Components
 import { House } from '@/components/environment/House';
@@ -22,36 +23,43 @@ import { AirVent } from '@/components/environment/AirVent';
 import { Curb } from '@/components/environment/props/Curb';
 import { Planter } from '@/components/environment/props/Planter';
 import { Drain } from '@/components/environment/props/Drain';
+import { Tornado } from '@/components/game/Tornado';
+import { Thunder } from '@/components/game/Thunder';
+import { StageGate } from '@/game/StageGate';
+import { Mole } from '@/components/environment/Mole';
+import { MoleAI } from '@/components/environment/MoleAI';
 
-interface GroundProps {
-    sceneConfig: any;
-}
 
-function Ground({ sceneConfig }: GroundProps) {
-    const size = sceneConfig.groundSize || [40, 30];
-    // Center logic: if maxX is 60 and minX is -20, center is (60-20)/2 = 20
-    const centerX = size[0] === 80 ? 20 : 0;
+import { ZONES } from '@/spec/zones';
+
+function Ground() {
+    const currentStage = useGameStore(s => s.currentStage);
+    const zone = ZONES[`zone${currentStage}`] || ZONES.zone1;
+
+    const centerX = (zone.minX + zone.maxX) / 2;
+    const centerZ = (zone.minZ + zone.maxZ) / 2;
+    const width = zone.maxX - zone.minX;
+    const depth = zone.maxZ - zone.minZ;
 
     const [ref] = usePlane(() => ({
         rotation: [-Math.PI / 2, 0, 0],
-        position: [centerX, 0, 0],
+        position: [centerX, 0, centerZ],
         material: { friction: 0.1 }
     }));
 
     return (
-        <mesh ref={ref as any} rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[centerX, 0, 0]}>
-            <planeGeometry args={size} />
+        <mesh ref={ref as any} rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[centerX, 0, centerZ]}>
+            <planeGeometry args={[width, depth]} />
             <meshStandardMaterial color="#4a7c38" roughness={1} />
         </mesh>
     );
 }
 
+import { BagManager } from '@/game/BagManager';
+
 export function GameScene() {
     const [leafApi, setLeafApi] = useState<any>(null);
     const [leafRef, setLeafRef] = useState<React.RefObject<THREE.InstancedMesh> | null>(null);
-    const bags = useGameStore(s => s.bags);
-    const stageCleared = useGameStore(s => s.stageCleared);
-    const nextStage = useGameStore(s => s.nextStage);
     const currentStage = useGameStore(s => s.currentStage);
 
     // Current Scene Config
@@ -65,40 +73,40 @@ export function GameScene() {
     return (
         <div className="w-full h-screen bg-sky-200 relative">
             <Canvas shadows camera={{ position: [0, 5, 10], fov: 50 }}>
-                <Suspense fallback={null}>
-                    {/* Lighting & Environment */}
-                    <Environment background files="/skybox/equirectangular-jpg_14880663.jpg" />
-                    <ambientLight intensity={0.5} />
-                    <directionalLight
-                        position={[10, 20, 10]}
-                        intensity={1.5}
-                        castShadow
-                        shadow-mapSize={[2048, 2048]}
-                        shadow-camera-left={-50}
-                        shadow-camera-right={50}
-                        shadow-camera-top={50}
-                        shadow-camera-bottom={-50}
-                    />
+                {/* Lighting & Environment - Stable */}
+                <Environment background files="/skybox/equirectangular-jpg_14880663.jpg" />
+                <ambientLight intensity={0.5} />
+                <directionalLight
+                    position={[10, 20, 10]}
+                    intensity={1.5}
+                    castShadow
+                    shadow-mapSize={[2048, 2048]}
+                />
 
-                    <Physics
-                        gravity={[0, -9.81, 0]}
-                        stepSize={1 / 60}
-                        iterations={5}
-                        allowSleep={false}
-                        defaultContactMaterial={{ friction: 0.9, restitution: 0 }}
-                    >
-                        <Ground sceneConfig={sceneConfig} />
+                <Physics
+                    gravity={[0, -9.81, 0]}
+                    stepSize={1 / 60}
+                    iterations={5}
+                    allowSleep={false}
+                    defaultContactMaterial={{ friction: 0.9, restitution: 0 }}
+                >
+                    <Suspense fallback={null}>
+                        <Ground key={`ground-${currentStage}`} />
 
                         {/* Environment - Dynamic Layout based on SceneConfig */}
                         {sceneConfig.house && (
-                            <House position={sceneConfig.house.position} scale={sceneConfig.house.scale} />
+                            <House
+                                key={`house-${currentStage}`}
+                                position={sceneConfig.house.position}
+                                scale={sceneConfig.house.scale}
+                                extraHeight={currentStage === 5 ? 20 : 0}
+                            />
                         )}
 
                         {sceneConfig.trees.map((tree, i) => (
                             <Tree key={`tree-${currentStage}-${i}`} position={tree.position} scale={tree.scale} />
                         ))}
 
-                        {/* Fence Enclosure - Grid-aligned 2m modules */}
                         <FenceEnclosure />
 
                         {/* Air Vents (Interactive) */}
@@ -113,52 +121,75 @@ export function GameScene() {
                             />
                         ))}
 
-                        {/* Stage 2 Props: Curbs, Planters, Drains */}
-                        {sceneConfig.curbs?.map((curb, i) => (
-                            <Curb key={`curb-${currentStage}-${i}`} position={curb.position} rotation={curb.rotation} args={curb.args} />
+                        <Tornado />
+                        {leafApi && <Thunder leafApi={leafApi} />}
+
+                        {sceneConfig.curbs?.map((curb: any, i: number) => (
+                            <Curb key={`curb-${i}`} position={curb.position} rotation={curb.rotation} length={curb.length} />
                         ))}
-                        {sceneConfig.planters?.map((planter, i) => (
-                            <Planter key={`planter-${currentStage}-${i}`} position={planter.position} rotation={planter.rotation} args={planter.args} />
+                        {sceneConfig.planters?.map((planter: any, i: number) => (
+                            <Planter key={`planter-${i}`} position={planter.position} rotation={planter.rotation} />
                         ))}
-                        {sceneConfig.drains?.map((drain, i) => (
-                            <Drain key={`drain-${currentStage}-${i}`} position={drain.position} />
+                        {sceneConfig.drains?.map((drain: any, i: number) => (
+                            <Drain key={`drain-${i}`} position={drain.position} radius={drain.radius} leafApi={leafApi} leafRef={leafRef} />
                         ))}
 
-                        {/* Trash Bin(s) */}
-                        <TrashBin position={[15, 0, 12]} />
-                        {sceneConfig.isExpansion && (
-                            <TrashBin position={[55, 0, 12]} />
+                        {currentStage === 3 && leafApi && (
+                            <MoleAI
+                                position={[60, 0, 0]}
+                                radius={5}
+                                strength={5}
+                                interval={8000}
+                                leafApi={leafApi}
+                                zoneMin={[45, -12]}
+                                zoneMax={[75, 12]}
+                            />
+                        )}
+                        {currentStage === 4 && leafApi && (
+                            <MoleAI
+                                position={[90, 0, 0]}
+                                radius={5}
+                                strength={8}
+                                interval={8000}
+                                leafApi={leafApi}
+                                zoneMin={[75, -12]}
+                                zoneMax={[105, 12]}
+                            />
+                        )}
+                        {currentStage === 5 && leafApi && (
+                            <MoleAI
+                                position={[120, 0, 0]}
+                                radius={5}
+                                strength={20}
+                                interval={8000}
+                                leafApi={leafApi}
+                                zoneMin={[105, -12]}
+                                zoneMax={[135, 12]}
+                            />
                         )}
 
-                        <LeafManager onLeafApiReady={handleLeafApiReady} />
-
-                        {bags.map(bag => (
-                            <LeafBag key={bag.id} id={bag.id} initialPos={bag.position} />
+                        {/* Trash Bin(s) */}
+                        {sceneConfig.trashBins?.map((bin: any, i: number) => (
+                            <TrashBin key={`bin-${currentStage}-${i}`} position={bin.position} scale={bin.scale} rotation={bin.rotation} />
                         ))}
 
-                        {leafApi && leafRef && <Tools leafApi={leafApi} leafRef={leafRef} />}
-                        <Player />
-                    </Physics>
-                    <PointerLockControls />
-                </Suspense>
-            </Canvas>
+                        <LeafManager onLeafApiReady={handleLeafApiReady} />
+                        <BagManager />
+                    </Suspense>
 
-            {/* Stage Clear Overlay */}
-            {stageCleared && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-50 animate-in fade-in duration-500 pointer-events-auto">
-                    <div className="bg-white/10 backdrop-blur-md p-10 rounded-3xl border border-white/20 text-center shadow-2xl">
-                        <h1 className="text-6xl font-bold text-yellow-400 mb-4 drop-shadow-lg">STAGE CLEARED!</h1>
-                        <p className="text-2xl text-white mb-2">{sceneConfig.name}</p>
-                        <p className="text-lg text-white/70 mb-8">{currentStage}단계를 완료했습니다.</p>
-                        <button
-                            onClick={() => nextStage()}
-                            className="bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 px-12 rounded-full text-2xl transition-all hover:scale-110 active:scale-95 shadow-xl pointer-events-auto"
-                        >
-                            {currentStage === 1 ? "다른 구역 오픈!" : "다음 씬으로 이동"}
-                        </button>
-                    </div>
-                </div>
-            )}
+                    {/* Player & Tools - Should never unmount during stage change */}
+                    {leafApi && leafRef && <Tools leafApi={leafApi} leafRef={leafRef} />}
+                    <Player />
+
+                    {/* Stage Transition Gates */}
+                    <StageGate targetStage={2} position={[15, 0, 0]} />
+                    <StageGate targetStage={3} position={[45, 0, 0]} />
+                    <StageGate targetStage={4} position={[75, 0, 0]} />
+                    <StageGate targetStage={5} position={[105, 0, 0]} />
+                </Physics>
+                <PointerLockControls />
+                <DebugTool />
+            </Canvas>
         </div>
     );
 }

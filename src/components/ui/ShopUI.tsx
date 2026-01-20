@@ -20,24 +20,24 @@ const UpgradeCard = ({ title, desc, cost, level, maxLevel, onBuy, canAfford }: a
 );
 
 export function ShopUI() {
-    const { money, purchaseUpgrade, toggleShop, pickAmount, moneyMultiplier } = useGameStore();
+    const { money, purchaseUpgrade, toggleShop, pickAmount, moneyMultiplier, currentStage } = useGameStore();
 
     // Configuration for Pick Amount
     const getPickUpgrade = () => {
-        if (pickAmount === 1) return { cost: 100, next: 3, desc: "Collect 3 leaves at once" };
-        if (pickAmount === 3) return { cost: 600, next: 5, desc: "Collect 5 leaves at once" };
-        if (pickAmount === 5) return { cost: 1000, next: 10, desc: "Collect 10 leaves at once" };
-        return { cost: 0, next: 10, desc: "Max efficiency reached" };
+        if (pickAmount === 1) return { cost: 100, next: 3, desc: "손 줍기 (1 -> 3)" };
+        if (pickAmount === 3) return { cost: 600, next: 5, desc: "손 줍기 (3 -> 5)" };
+        if (pickAmount === 5) return { cost: 1000, next: 10, desc: "손 줍기 (5 -> 10)" };
+        if (pickAmount === 10) return { cost: 3000, next: 50, desc: "손 줍기 (10 -> 50)" };
+        if (pickAmount === 50) return { cost: 8000, next: 100, desc: "원클릭 봉투화 (50 -> 100)" };
+        return { cost: 0, next: 100, desc: "최고 효율 도달" };
     };
 
     // Configuration for Money Multiplier
     const getMultiUpgrade = () => {
-        // Floating point comparison warning: use epsilon or text approach
-        const m = Math.round(moneyMultiplier * 10);
-        if (m === 10) return { cost: 1200, next: 1.2, desc: "x1.2 Sell Value" };
-        if (m === 12) return { cost: 2500, next: 1.5, desc: "x1.5 Sell Value" };
-        if (m === 15) return { cost: 6000, next: 2.0, desc: "x2.0 Sell Value" };
-        return { cost: 0, next: 2.0, desc: "Max multiplier reached" };
+        const m = Math.round(moneyMultiplier);
+        if (m === 1) return { cost: 3000, next: 2.0, desc: "수익 2배 (x1.0 -> x2.0)" };
+        if (m === 2) return { cost: 9000, next: 3.0, desc: "수익 3배 (x2.0 -> x3.0)" };
+        return { cost: 0, next: 3.0, desc: "최대 배율 도달" };
     };
 
     const pickUp = getPickUpgrade();
@@ -49,36 +49,60 @@ export function ShopUI() {
                 {/* Header */}
                 <div className="bg-emerald-600 p-6 flex justify-between items-center text-white">
                     <div>
-                        <h2 className="text-2xl font-black italic uppercase">Upgrade Shop</h2>
-                        <div className="text-emerald-100 font-medium">Invest to earn more!</div>
+                        <h2 className="text-2xl font-black italic uppercase">상점 (Shop)</h2>
+                        <div className="text-emerald-100 font-medium">청소 효율을 높여 더 많은 수익을 올리세요!</div>
                     </div>
                     <div className="text-right">
-                        <div className="text-xs uppercase opacity-75">Current Balance</div>
-                        <div className="text-3xl font-black">₩{money}</div>
+                        <div className="text-xs uppercase opacity-75">보유 금액</div>
+                        <div className="text-3xl font-black">₩{money.toLocaleString()}</div>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="p-6 grid grid-cols-2 gap-4">
+                <div className="p-6 grid grid-cols-2 gap-4 max-h-[400px] overflow-y-auto">
                     <UpgradeCard
-                        title="Leaf Grabber"
+                        title="줍기 능력 (Pick Up)"
                         desc={pickUp.desc}
                         cost={pickUp.cost}
                         level={pickAmount}
-                        maxLevel={10} // Just visual cap
+                        maxLevel={100}
                         canAfford={money >= pickUp.cost}
                         onBuy={() => purchaseUpgrade('PICK_AMOUNT', pickUp.cost, pickUp.next)}
                     />
 
                     <UpgradeCard
-                        title="Market Demand"
+                        title="판매 단가 (Multiplier)"
                         desc={multiUp.desc}
                         cost={multiUp.cost}
                         level={moneyMultiplier}
-                        maxLevel={2.0}
+                        maxLevel={3}
                         canAfford={money >= multiUp.cost}
                         onBuy={() => purchaseUpgrade('MONEY_MULTI', multiUp.cost, multiUp.next)}
                     />
+
+                    {currentStage >= 2 && (
+                        <UpgradeCard
+                            title="갈퀴 강화 (Rake Up)"
+                            desc="갈퀴 범위 및 강도 강화"
+                            cost={800}
+                            level={1}
+                            maxLevel={4}
+                            canAfford={money >= 800}
+                            onBuy={() => purchaseUpgrade('RAKE', 800, 2)}
+                        />
+                    )}
+
+                    {currentStage >= 3 && (
+                        <UpgradeCard
+                            title="송풍기 강화 (Blower Up)"
+                            desc="송풍기 풍속 및 범위 강화"
+                            cost={1200}
+                            level={1}
+                            maxLevel={4}
+                            canAfford={money >= 1200}
+                            onBuy={() => purchaseUpgrade('BLOWER', 1200, 2)}
+                        />
+                    )}
                 </div>
 
                 {/* Close */}
