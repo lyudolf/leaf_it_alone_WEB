@@ -28,6 +28,7 @@ import { Thunder } from '@/components/game/Thunder';
 import { StageGate } from '@/game/StageGate';
 import { Mole } from '@/components/environment/Mole';
 import { MoleAI } from '@/components/environment/MoleAI';
+import { MoleSniper } from '@/components/environment/MoleSniper';
 
 
 import { ZONES } from '@/spec/zones';
@@ -156,16 +157,9 @@ export function GameScene() {
                                 zoneMax={[105, 12]}
                             />
                         )}
+                        {/* Stage 5: MoleSniper (ONNX AI) replaces regular MoleAI */}
                         {currentStage === 5 && leafApi && (
-                            <MoleAI
-                                position={[120, 0, 0]}
-                                radius={5}
-                                strength={20}
-                                interval={8000}
-                                leafApi={leafApi}
-                                zoneMin={[105, -12]}
-                                zoneMax={[135, 12]}
-                            />
+                            <MoleSniper leafApi={leafApi} />
                         )}
 
                         {/* Trash Bin(s) */}

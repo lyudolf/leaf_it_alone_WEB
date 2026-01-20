@@ -39,6 +39,30 @@
 - **진행형 난이도**: 스테이지가 지날수록 두더지 주기 단축, 바람 세기 증가 등 난이도가 상승합니다.
 
 ## 개발 참고 사항
-- **기술 스택**: Next.js, React Three Fiber, Cannon.js (Physics), Zustand
+- **기술 스택**: Next.js, React Three Fiber, Cannon.js (Physics), Zustand, ONNX Runtime Web
 - **최적화**: InstancedMesh를 사용하여 수천 개의 낙엽을 효율적으로 렌더링합니다.
 - **확장성**: `scenes.ts` 설정 파일을 통해 스테이지 구성(목표, 배치, 방해 요소)을 쉽게 수정할 수 있습니다.
+
+## MoleSniper AI (Stage 5)
+스테이지 5에서는 기존 두더지 대신 **ONNX 기반 AI 스나이퍼**가 등장합니다.
+
+### 작동 방식
+- **10초 쿨다운**: 매 10초마다 정확히 1회 발동
+- **타겟팅 규칙**: 플레이어 전방 ±55° 콘 내, 거리 4~9m 범위의 셀 중 최적 위치 선택
+- **효과**: 타겟 반경 2.2m 내 낙엽을 강하게 흩트림
+
+### 모델 학습 (선택사항)
+기본적으로 사전 학습된 모델이 포함되어 있습니다. 직접 학습하려면:
+```bash
+# PyTorch 사용 (requires torch, numpy)
+python scripts/train_mole_sniper.py
+
+# 또는 ONNX만 사용 (requires onnx, numpy)
+python scripts/generate_mole_sniper_onnx.py
+```
+
+### 모델 경로
+- **위치**: `public/models/mole_sniper.onnx`
+- **입력**: 324 floats (densityMap[320] + playerPos[2] + playerDir[2])
+- **출력**: 320 logits (20×16 grid)
+
