@@ -35,6 +35,17 @@ interface GameState {
     stageCleared: boolean;
     toasts: { id: string; message: string }[];
     tornadoPosition: [number, number, number] | null; // Tornado position for Stage 5
+    isVideoPlaying: boolean; // Ending video playback state
+
+    // Create Mode State
+    gameStarted: boolean;
+    isCreateMode: boolean;
+    customLeafModel: string | null;
+    customSkybox: string | null;
+    isGenerating: boolean;
+    generationStep: 'leaf' | 'skybox' | 'done' | null;
+    generationsToday: number;
+    lastGenerationDate: string | null;
 
     // Game Logic State
     pickAmount: number; // 1, 3, 5, 10, 50, 100
@@ -77,6 +88,22 @@ interface GameState {
     nextStage: () => void;
     deliverBagToDrain: (id: string) => void;
     addToast: (message: string) => void;
+    startEndingVideo: () => void;
+    stopEndingVideo: () => void;
+    resetGame: () => void;
+
+    // Create Mode Actions
+    startGame: (createMode: boolean) => void;
+    setCustomLeafModel: (url: string | null) => void;
+    setCustomSkybox: (url: string | null) => void;
+    setGenerating: (generating: boolean) => void;
+    setGenerationStep: (step: 'leaf' | 'skybox' | 'done' | null) => void;
+    incrementGenerations: () => boolean; // Returns false if limit reached
+    checkGenerationLimit: () => boolean; // Returns true if can generate
+
+    unlockedPotato: boolean;
+    unlockedCarrot: boolean;
+    unlockedTomato: boolean;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -92,7 +119,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     isShopOpen: false,
     isAirVentActive: false,
     playerPushEvent: null,
-    currentStage: 5, // Start at Stage 5 for testing
+    currentStage: 1, // Start at Stage 1
     totalLeavesInStage: SCENES[0].goal,
     bagsDeliveredToDrain: 0,
     bagsRequiredToClear: 0,
@@ -101,6 +128,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     stageCleared: false,
     toasts: [],
     tornadoPosition: null,
+    isVideoPlaying: false,
+
+    // Create Mode State
+    gameStarted: false,
+    isCreateMode: false,
+    customLeafModel: null,
+    customSkybox: null,
+    isGenerating: false,
+    generationStep: null,
+    generationsToday: 0,
+    lastGenerationDate: null,
+
+    unlockedPotato: false,
+    unlockedCarrot: false,
+    unlockedTomato: false,
 
     pickAmount: 1,
     moneyMultiplier: 1.0,
@@ -141,7 +183,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             bags: [...state.bags, {
                 id: bagId,
                 position,
-                value: 100
+                value: 150
             }],
             score: state.score - 100
         };
@@ -169,6 +211,23 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
         }
         return { bags: state.bags.filter(b => b.id !== id) };
+    }),
+
+    aiSellBag: (value) => set((state) => {
+        const payout = Math.floor(value * state.moneyMultiplier);
+        const newProcessed = state.processedLeavesTotal + value;
+
+        // Check if Stage goal
+        const isBagTask = state.objectiveType === 'BAGS';
+        const currentGoal = state.totalLeavesInStage;
+        const cleared = isBagTask && newProcessed >= currentGoal;
+
+        return {
+            money: state.money + payout,
+            processedLeavesTotal: newProcessed,
+            bagsDeliveredToDrain: state.bagsDeliveredToDrain + 1,
+            stageCleared: state.stageCleared || cleared
+        };
     }),
 
     setTool: (tool) => set({ currentTool: tool }),
@@ -211,11 +270,36 @@ export const useGameStore = create<GameState>((set, get) => ({
         playerPushEvent: { pos, radius, strength, timestamp: Date.now() }
     }),
 
-    purchaseUpgrade: (type, cost, value) => set((state) => {
+
+
+    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI' | 'RAKE' | 'BLOWER' | 'POTATO_AI' | 'CARROT_AI' | 'TOMATO_AI', cost: number, value: number) => set((state) => {
         if (state.money >= cost) {
             const newState: Partial<GameState> = { money: state.money - cost };
             if (type === 'PICK_AMOUNT') newState.pickAmount = value;
             if (type === 'MONEY_MULTI') newState.moneyMultiplier = value;
+            if (type === 'RAKE') {
+                newState.upgrades = {
+                    ...state.upgrades,
+                    rakeRange: value,
+                    rakeStrength: value
+                };
+            }
+            if (type === 'BLOWER') {
+                newState.upgrades = {
+                    ...state.upgrades,
+                    blowerRange: value,
+                    blowerStrength: value
+                };
+            }
+            if (type === 'POTATO_AI' as any) {
+                newState.unlockedPotato = true;
+            }
+            if (type === 'CARROT_AI' as any) {
+                newState.unlockedCarrot = true;
+            }
+            if (type === 'TOMATO_AI' as any) {
+                newState.unlockedTomato = true;
+            }
             return newState;
         }
         return state;
@@ -234,8 +318,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         const nextScene = SCENES[nextIndex];
         const unlockMessage = nextIndex === 1 ? "Stage 2 오픈! 두더지 출현 + 갈퀴 해금" :
             nextIndex === 2 ? "Stage 3 오픈! 송풍기 해금" :
-                nextIndex === 3 ? "Stage 4 오픈! 바람 부는 날씨" :
-                    "Stage 5 오픈! 토네이도 발생";
+                nextIndex === 3 ? "Stage 4 오픈! 거대 두더지 출몰!" :
+                    "Stage 5 오픈! 재난!";
 
         state.addToast(unlockMessage);
 
@@ -268,5 +352,85 @@ export const useGameStore = create<GameState>((set, get) => ({
                 toasts: state.toasts.filter(t => t.id !== id)
             }));
         }, 3000);
+    },
+
+    startEndingVideo: () => set({ isVideoPlaying: true }),
+    stopEndingVideo: () => set({ isVideoPlaying: false }),
+
+    resetGame: () => set({
+        score: 0,
+        money: 0,
+        processedLeavesTotal: 0,
+        totalCollected: 0,
+        currentStage: 1,
+        totalLeavesInStage: SCENES[0].goal,
+        bagsDeliveredToDrain: 0,
+        objectiveType: 'LEAVES',
+        stageCleared: false,
+        toasts: [],
+        pickAmount: 1,
+        moneyMultiplier: 1.0,
+        carriedBagId: null,
+        bags: [],
+        unlockedTools: ['HAND'],
+        currentTool: 'HAND',
+        upgrades: {
+            rakeRange: 1,
+            rakeStrength: 1,
+            blowerRange: 1,
+            blowerStrength: 1,
+            handSpeed: 1,
+        }
+    }),
+
+    // Create Mode Actions
+    startGame: (createMode) => set({
+        gameStarted: true,
+        isCreateMode: createMode,
+        isInventoryOpen: false,
+        isShopOpen: false,
+        isHelpOpen: false,
+        isIntroOpen: false
+    }),
+
+    setCustomLeafModel: (url) => set({ customLeafModel: url }),
+    setCustomSkybox: (url) => set({ customSkybox: url }),
+    setGenerating: (generating) => set({ isGenerating: generating }),
+    setGenerationStep: (step) => set({ generationStep: step }),
+
+    incrementGenerations: () => {
+        const state = get();
+        const today = new Date().toDateString();
+
+        // Reset counter if new day
+        if (state.lastGenerationDate !== today) {
+            set({
+                generationsToday: 1,
+                lastGenerationDate: today
+            });
+            return true;
+        }
+
+        // Check limit
+        if (state.generationsToday >= 3) {
+            return false; // Limit reached
+        }
+
+        set({
+            generationsToday: state.generationsToday + 1
+        });
+        return true;
+    },
+
+    checkGenerationLimit: () => {
+        const state = get();
+        const today = new Date().toDateString();
+
+        // Reset if new day
+        if (state.lastGenerationDate !== today) {
+            return true;
+        }
+
+        return state.generationsToday < 3;
     }
 }));

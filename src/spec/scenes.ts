@@ -41,7 +41,6 @@ export const SCENES: SceneConfig[] = [
             { position: [42, 0, -4], scale: 1.4 },
         ],
         vents: [{ position: [30, 0, 0], radius: 3, strength: 15 }],
-        curbs: [{ position: [30, 0, -11], rotation: [0, 0, 0], length: 30 }],
         planters: [{ position: [25, 0, -9], rotation: [0, 0, 0] }],
 
     },
@@ -54,7 +53,7 @@ export const SCENES: SceneConfig[] = [
         house: { position: [48, 0, -8], scale: 3.5 },
         trees: [
             { position: [60, 0, -4], scale: 1.8 },
-            { position: [70, 0, 8], scale: 1.5 },
+            { position: [50, 0, 8], scale: 1.5 },  // Moved from [70,0,8] to avoid blocking trash bin
         ],
         vents: [{ position: [60, 0, 4], radius: 3, strength: 15 }]
     },
@@ -64,11 +63,11 @@ export const SCENES: SceneConfig[] = [
         goalType: 'LEAVES', // Changed from BAGS to LEAVES
         groundSize: [30, 24],
         trashBins: [
-            { position: [78, 0, -9] }, // Bottom Left
-            { position: [102, 0, 9] }  // Top Right
+            { position: [78, 0, 9] },   // Top Left (moved from bottom-left to avoid house)
+            { position: [102, 0, 9] }   // Top Right
         ],
         house: { position: [78, 0, -8], scale: 3.5 },
-        trees: [{ position: [90, 0, 0], scale: 2.2 }],
+        trees: [{ position: [90, 0, -11], scale: 2.2 }],  // Moved to back edge center
         vents: [{ position: [85, 0, -4], radius: 4, strength: 18 }],
         drains: [{ position: [103, 0, -10], radius: 1.0 }] // Bottom-right corner (away from bins/house)
     },
@@ -78,7 +77,7 @@ export const SCENES: SceneConfig[] = [
         goalType: 'LEAVES', // Changed from BAGS to LEAVES
         groundSize: [30, 24],
         trashBins: [
-            { position: [108, 0, -9], scale: 0.5, rotation: [0, Math.PI, 0] }, // Bottom Left - Smaller & Rotated
+            { position: [108, 0, 9], scale: 0.5, rotation: [0, Math.PI, 0] }, // Top Left - Moved away from house
             { position: [132, 0, 9], scale: 0.5, rotation: [0, Math.PI, 0] }  // Top Right - Smaller & Rotated
         ],
         house: { position: [108, 0, -8], scale: 3.5 },

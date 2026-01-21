@@ -14,12 +14,52 @@ export function Thunder({ leafApi }: ThunderProps) {
     const currentStage = useGameStore(s => s.currentStage);
     const [bolts, setBolts] = useState<{ id: number; pos: [number, number, number]; opacity: number }[]>([]);
 
-    // Only active in Stage 5
-    if (currentStage !== 5) return null;
-
     // Burst Logic
     useEffect(() => {
         if (currentStage !== 5) return;
+
+        const explodeLeaves = (center: [number, number, number]) => {
+            if (!leafApi) return;
+            const { count, positions } = leafApi;
+            const radius = 5; // Explosion radius
+            const force = 30; // Explosion force
+
+            const p = new THREE.Vector3();
+            const c = new THREE.Vector3(center[0], center[1], center[2]);
+
+            for (let i = 0; i < count; i++) {
+                p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+                const dist = p.distanceTo(c);
+
+                if (dist < radius) {
+                    // Direction away from center + Up
+                    const dir = p.clone().sub(c).normalize();
+                    dir.y = 0.5 + Math.random(); // Always pop up
+                    dir.normalize().multiplyScalar(force * (1 - dist / radius));
+
+                    leafApi.applyImpulse(i, [dir.x, dir.y, dir.z]);
+                }
+            }
+        };
+
+        const strike = () => {
+            // 1. Random Position in Stage 5 (X: 105~135, Z: -12~12)
+            const x = 105 + Math.random() * 30;
+            const z = -12 + Math.random() * 24;
+            const pos: [number, number, number] = [x, 0, z];
+
+            // 2. Visual Bolt
+            const id = Date.now() + Math.random();
+            setBolts(prev => [...prev, { id, pos, opacity: 1.0 }]);
+
+            // Remove visual after short time
+            setTimeout(() => {
+                setBolts(prev => prev.filter(b => b.id !== id));
+            }, 300); // 0.3s visual duration
+
+            // 3. Leaf Physics Explosion
+            explodeLeaves(pos);
+        };
 
         let intervalId: NodeJS.Timeout;
 
@@ -41,48 +81,8 @@ export function Thunder({ leafApi }: ThunderProps) {
         return () => clearInterval(intervalId);
     }, [currentStage, leafApi]);
 
-    const strike = () => {
-        // 1. Random Position in Stage 5 (X: 105~135, Z: -12~12)
-        const x = 105 + Math.random() * 30;
-        const z = -12 + Math.random() * 24;
-        const pos: [number, number, number] = [x, 0, z];
-
-        // 2. Visual Bolt
-        const id = Date.now() + Math.random();
-        setBolts(prev => [...prev, { id, pos, opacity: 1.0 }]);
-
-        // Remove visual after short time
-        setTimeout(() => {
-            setBolts(prev => prev.filter(b => b.id !== id));
-        }, 300); // 0.3s visual duration
-
-        // 3. Leaf Physics Explosion
-        explodeLeaves(pos);
-    };
-
-    const explodeLeaves = (center: [number, number, number]) => {
-        if (!leafApi) return;
-        const { count, positions } = leafApi;
-        const radius = 5; // Explosion radius
-        const force = 30; // Explosion force
-
-        const p = new THREE.Vector3();
-        const c = new THREE.Vector3(center[0], center[1], center[2]);
-
-        for (let i = 0; i < count; i++) {
-            p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-            const dist = p.distanceTo(c);
-
-            if (dist < radius) {
-                // Direction away from center + Up
-                const dir = p.clone().sub(c).normalize();
-                dir.y = 0.5 + Math.random(); // Always pop up
-                dir.normalize().multiplyScalar(force * (1 - dist / radius));
-
-                leafApi.applyImpulse(i, [dir.x, dir.y, dir.z]);
-            }
-        }
-    };
+    // Only render in Stage 5
+    if (currentStage !== 5) return null;
 
     return (
         <>

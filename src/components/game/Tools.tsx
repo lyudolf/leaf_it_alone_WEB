@@ -2,7 +2,7 @@
 
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGameStore } from '@/game/store';
-import { TOOL_CONFIG } from '@/game/toolConfig';
+import { TOOL_CONFIG, getRakeConfig, getBlowerConfig } from '@/game/toolConfig';
 import * as THREE from 'three';
 import { useEffect, useRef, useState, useMemo } from 'react';
 
@@ -265,23 +265,24 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
         // The `clicked` state is no longer used for HAND.
 
         if (currentTool === 'RAKE' && clicked) {
-            applyRakeForces(leafApi, toolPosition.current, camera, TOOL_CONFIG.RAKE);
+            const rakeConfig = getRakeConfig(upgrades.rakeRange) as any;
+            applyRakeForces(leafApi, toolPosition.current, camera, rakeConfig);
             setClicked(false);
             return;
         }
 
         if (currentTool === 'BLOWER' && isMouseDown) {
             const now = state.clock.elapsedTime * 1000;
-            const config = TOOL_CONFIG.BLOWER;
+            const blowerConfig = getBlowerConfig(upgrades.blowerRange) as any;
 
-            if (now - lastTickTime.current < config.tickInterval) return;
+            if (now - lastTickTime.current < blowerConfig.tickInterval) return;
             lastTickTime.current = now;
 
             const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
             forward.y = 0; forward.normalize();
-            const blowerPos = camera.position.clone().add(forward.multiplyScalar(config.distance));
+            const blowerPos = camera.position.clone().add(forward.multiplyScalar(blowerConfig.distance));
 
-            applyBlowerForces(leafApi, blowerPos, camera, config);
+            applyBlowerForces(leafApi, blowerPos, camera, blowerConfig);
         }
 
         if (currentTool === 'VACUUM' && isMouseDown) {
@@ -295,30 +296,7 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
         }
     });
 
-    // Show visual colliders for testing tools
-    const config = (TOOL_CONFIG as any)[currentTool];
-    if (!config) return null;
-
-    return (
-        <>
-            <mesh position={toolPosition.current}>
-                <sphereGeometry args={[config.range, 32, 32]} />
-                <meshBasicMaterial
-                    color={currentTool === 'RAKE' ? '#ff8800' : currentTool === 'VACUUM' ? '#ff00ff' : '#00ddff'}
-                    wireframe
-                    opacity={isMouseDown ? 0.3 : 0.1}
-                    transparent
-                />
-            </mesh>
-
-            {currentTool === 'VACUUM' && (
-                <mesh position={camera.position.clone().add(new THREE.Vector3(0, -0.5, 0))}>
-                    <sphereGeometry args={[config.collectRadius, 16, 16]} />
-                    <meshBasicMaterial color="#ffffff" opacity={0.2} transparent />
-                </mesh>
-            )}
-        </>
-    );
+    return null;
 }
 
 function applyVacuumCollector(

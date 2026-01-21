@@ -2,7 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { Physics, usePlane } from '@react-three/cannon';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { LeafManager } from './LeafManager';
 import { Tools } from './Tools';
 import { Player } from './Player';
@@ -29,6 +29,10 @@ import { StageGate } from '@/game/StageGate';
 import { Mole } from '@/components/environment/Mole';
 import { MoleAI } from '@/components/environment/MoleAI';
 import { MoleSniper } from '@/components/environment/MoleSniper';
+import { HipSH } from '@/components/environment/props/HipSH';
+import { PotatoSH } from '@/components/environment/props/PotatoSH';
+import { CarrotSH } from '@/components/environment/props/CarrotSH';
+import { TomatoSH } from '@/components/environment/props/TomatoSH';
 
 
 import { ZONES } from '@/spec/zones';
@@ -62,9 +66,16 @@ export function GameScene() {
     const [leafApi, setLeafApi] = useState<any>(null);
     const [leafRef, setLeafRef] = useState<React.RefObject<THREE.InstancedMesh> | null>(null);
     const currentStage = useGameStore(s => s.currentStage);
+    const customSkybox = useGameStore(s => s.customSkybox);
+
+    useEffect(() => {
+        // Ensure window has focus for controls
+        window.focus();
+    }, []);
 
     // Current Scene Config
     const sceneConfig = SCENES[Math.min(currentStage - 1, SCENES.length - 1)];
+    const skyboxPath = customSkybox || '/skybox/equirectangular-jpg_14880663.jpg';
 
     const handleLeafApiReady = (api: any, ref: React.RefObject<THREE.InstancedMesh>) => {
         if (!leafApi) setLeafApi(api);
@@ -75,7 +86,7 @@ export function GameScene() {
         <div className="w-full h-screen bg-sky-200 relative">
             <Canvas shadows camera={{ position: [0, 5, 10], fov: 50 }}>
                 {/* Lighting & Environment - Stable */}
-                <Environment background files="/skybox/equirectangular-jpg_14880663.jpg" />
+                <Environment background files={skyboxPath} />
                 <ambientLight intensity={0.5} />
                 <directionalLight
                     position={[10, 20, 10]}
@@ -96,13 +107,62 @@ export function GameScene() {
 
                         {/* Environment - Dynamic Layout based on SceneConfig */}
                         {sceneConfig.house && (
-                            <House
-                                key={`house-${currentStage}`}
-                                position={sceneConfig.house.position}
-                                scale={sceneConfig.house.scale}
-                                extraHeight={currentStage === 5 ? 20 : 0}
-                            />
+                            <>
+                                <House
+                                    key={`house-${currentStage}`}
+                                    position={sceneConfig.house.position}
+                                    scale={sceneConfig.house.scale}
+                                    extraHeight={currentStage === 5 ? 20 : 0}
+                                />
+                                {/* Hip_SH Model next to House (Relative Offset: x+4.5, consistent across stages) */}
+                                <HipSH
+                                    key={`hipsh-${currentStage}`}
+                                    position={[sceneConfig.house.position[0] + 4.5, 0, sceneConfig.house.position[2]]}
+                                    scale={1.5}
+                                    rotation={[0, -Math.PI / 4, 0]}
+                                />
+                            </>
                         )}
+
+                        {/* Potato_SH (AI Helper) - Spawns at Center if Unlocked */}
+                        {useGameStore(s => s.unlockedPotato) && (() => {
+                            const zone = ZONES[`zone${currentStage}`] || ZONES.zone1;
+                            const cx = (zone.minX + zone.maxX) / 2;
+                            const cz = (zone.minZ + zone.maxZ) / 2;
+                            return (
+                                <PotatoSH
+                                    key={`potatosh-${currentStage}`}
+                                    position={[cx - 2, 1, cz]}
+                                />
+                            );
+                        })()}
+
+                        {/* Carrot_SH (AI Helper) - Spawns when Unlocked */}
+                        {useGameStore(s => s.unlockedCarrot) && (() => {
+                            const zone = ZONES[`zone${currentStage}`] || ZONES.zone1;
+                            const cx = (zone.minX + zone.maxX) / 2;
+                            const cz = (zone.minZ + zone.maxZ) / 2;
+                            return (
+                                <CarrotSH
+                                    key={`carrotsh-${currentStage}`}
+                                    position={[cx, 1, cz]}
+                                />
+                            );
+                        })()}
+
+                        {/* Tomato_SH (AI Helper) - Spawns when Unlocked */}
+                        {useGameStore(s => s.unlockedTomato) && (() => {
+                            const zone = ZONES[`zone${currentStage}`] || ZONES.zone1;
+                            const cx = (zone.minX + zone.maxX) / 2;
+                            const cz = (zone.minZ + zone.maxZ) / 2;
+                            return (
+                                <TomatoSH
+                                    key={`tomatosh-${currentStage}`}
+                                    position={[cx + 2, 1, cz]}
+                                />
+                            );
+                        })()}
+
 
                         {sceneConfig.trees.map((tree, i) => (
                             <Tree key={`tree-${currentStage}-${i}`} position={tree.position} scale={tree.scale} />
@@ -144,6 +204,7 @@ export function GameScene() {
                                 leafApi={leafApi}
                                 zoneMin={[45, -12]}
                                 zoneMax={[75, 12]}
+                                scale={0.5}
                             />
                         )}
                         {currentStage === 4 && leafApi && (
@@ -155,6 +216,7 @@ export function GameScene() {
                                 leafApi={leafApi}
                                 zoneMin={[75, -12]}
                                 zoneMax={[105, 12]}
+                                scale={1.5}
                             />
                         )}
                         {/* Stage 5: MoleSniper (ONNX AI) replaces regular MoleAI */}
@@ -180,10 +242,11 @@ export function GameScene() {
                     <StageGate targetStage={3} position={[45, 0, 0]} />
                     <StageGate targetStage={4} position={[75, 0, 0]} />
                     <StageGate targetStage={5} position={[105, 0, 0]} />
+                    <StageGate targetStage={6} position={[135, 0, 0]} /> {/* Final gate for ending video */}
                 </Physics>
                 <PointerLockControls />
                 <DebugTool />
             </Canvas>
-        </div>
+        </div >
     );
 }

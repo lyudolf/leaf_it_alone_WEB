@@ -23,7 +23,9 @@ interface LeafManagerProps {
 
 export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null);
-    const { scene: leafModel } = useGLTF('/models/leaf2.glb');
+    const customLeafModel = useGameStore(s => s.customLeafModel);
+    const leafModelPath = customLeafModel || '/models/leaf2.glb';
+    const { scene: leafModel } = useGLTF(leafModelPath);
     const currentStage = useGameStore(s => s.currentStage);
 
     // Wind state (Stage 4)

@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '@/game/store';
 import {
@@ -31,7 +32,7 @@ interface MoleSniperProps {
 }
 
 const COOLDOWN_MS = 10000; // 10 seconds
-const SCATTER_RADIUS = 2.2; // meters
+const SCATTER_RADIUS = 4.0; // meters
 const SCATTER_FORCE = 25;
 const DENSITY_UPDATE_INTERVAL = 300; // ms (~3Hz)
 
@@ -109,9 +110,35 @@ export function MoleSniper({ leafApi }: MoleSniperProps) {
         // Apply scatter effect
         scatterLeaves(targetX, targetZ);
 
+        // Push player if within blast radius
+        pushPlayerIfNear(targetX, targetZ);
+
         // Update state for UI/debug
         setLastTarget([targetX, targetZ]);
         visualEffectRef.current = { pos: [targetX, 0.1, targetZ], time: Date.now() };
+    };
+
+    const pushPlayerIfNear = (centerX: number, centerZ: number) => {
+        const playerX = camera.position.x;
+        const playerZ = camera.position.z;
+
+        const dx = playerX - centerX;
+        const dz = playerZ - centerZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        // If player is within scatter radius, push them
+        if (dist < SCATTER_RADIUS) {
+            const pushForce = 15 * (1 - dist / SCATTER_RADIUS); // Stronger push when closer
+
+            // Use triggerPlayerPush from store (same as AirVent)
+            useGameStore.getState().triggerPlayerPush(
+                [centerX, 0, centerZ], // Source position
+                SCATTER_RADIUS,        // Radius
+                pushForce              // Strength
+            );
+
+            console.log(`[MoleSniper] Player hit! Push force: ${pushForce.toFixed(1)}`);
+        }
     };
 
     const scatterLeaves = (centerX: number, centerZ: number) => {
@@ -171,27 +198,48 @@ export function MoleSniper({ leafApi }: MoleSniperProps) {
         }
     };
 
+    // Load ryo.glb model
+    const { scene: ryoModel } = useGLTF('/models/ryo.glb');
+
     return (
         <>
             {/* Visual effect at target location */}
-            {visualEffectRef.current && (
-                <group position={visualEffectRef.current.pos}>
-                    {/* Ground burst circle */}
-                    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                        <ringGeometry args={[0.5, SCATTER_RADIUS, 16]} />
-                        <meshBasicMaterial color="#ff6600" transparent opacity={0.6} side={THREE.DoubleSide} />
-                    </mesh>
+            {visualEffectRef.current && (() => {
+                const targetPos = visualEffectRef.current.pos;
+                const playerX = camera.position.x;
+                const playerZ = camera.position.z;
 
-                    {/* Center glow */}
-                    <mesh>
-                        <sphereGeometry args={[0.3, 8, 8]} />
-                        <meshBasicMaterial color="#ffaa00" transparent opacity={0.8} />
-                    </mesh>
+                // Calculate rotation to face player
+                const dx = playerX - targetPos[0];
+                const dz = playerZ - targetPos[2];
+                const rotationY = Math.atan2(dx, dz);
 
-                    {/* Light */}
-                    <pointLight color="#ff6600" intensity={5} distance={5} />
-                </group>
-            )}
+                return (
+                    <group position={targetPos}>
+                        {/* Ryo Model facing player */}
+                        <primitive
+                            object={ryoModel.clone()}
+                            scale={1.5}
+                            rotation={[0, rotationY, 0]}
+                        />
+
+                        {/* Ground burst circle */}
+                        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                            <ringGeometry args={[0.5, SCATTER_RADIUS, 16]} />
+                            <meshBasicMaterial color="#ff6600" transparent opacity={0.6} side={THREE.DoubleSide} />
+                        </mesh>
+
+                        {/* Center glow */}
+                        <mesh>
+                            <sphereGeometry args={[0.3, 8, 8]} />
+                            <meshBasicMaterial color="#ffaa00" transparent opacity={0.8} />
+                        </mesh>
+
+                        {/* Light */}
+                        <pointLight color="#ff6600" intensity={5} distance={5} />
+                    </group>
+                );
+            })()}
 
             {/* Debug: Show model status (hidden in production) */}
             {/* Uncomment for debugging:
@@ -206,3 +254,5 @@ export function MoleSniper({ leafApi }: MoleSniperProps) {
         </>
     );
 }
+
+useGLTF.preload('/models/ryo.glb');

@@ -12,8 +12,8 @@ export const GRID_ROWS = 16;
 export const CELL_SIZE = 1.5; // meters
 export const BOUNDS_X: [number, number] = [105, 135];
 export const BOUNDS_Z: [number, number] = [-12, 12];
-export const MIN_DIST = 4.0;
-export const MAX_DIST = 9.0;
+export const MIN_DIST = 1.0;
+export const MAX_DIST = 3.0;
 export const CONE_HALF_ANGLE_DEG = 55;
 
 const INPUT_SIZE = GRID_COLS * GRID_ROWS + 4; // 324

@@ -25,7 +25,7 @@ export const TOOL_CONFIG = {
         tickInterval: 50,      // Apply force every N milliseconds
     },
     VACUUM: {
-        range: 6,              // Suction range
+        range: 25,             // Suction range (current stage area)
         collectRadius: 1.5,    // Automatic collection radius
         strength: 20,          // Pull strength
         tickInterval: 50,
@@ -37,3 +37,33 @@ export const TOOL_CONFIG = {
 } as const;
 
 export type ToolType = 'HAND' | 'RAKE' | 'BLOWER' | 'VACUUM';
+
+/**
+ * Get Rake configuration based on upgrade level (1-4)
+ */
+export function getRakeConfig(upgradeLevel: number) {
+    const level = Math.max(1, Math.min(4, upgradeLevel));
+    return {
+        range: TOOL_CONFIG.RAKE.range + (level - 1) * 1.5, // 3, 4.5, 6, 7.5
+        distance: TOOL_CONFIG.RAKE.distance,
+        scrapeStrength: TOOL_CONFIG.RAKE.scrapeStrength + (level - 1) * 5, // 15, 20, 25, 30
+        scrapeAngle: TOOL_CONFIG.RAKE.scrapeAngle,
+        tickInterval: TOOL_CONFIG.RAKE.tickInterval,
+    };
+}
+
+/**
+ * Get Blower configuration based on upgrade level (1-4)
+ */
+export function getBlowerConfig(upgradeLevel: number) {
+    const level = Math.max(1, Math.min(4, upgradeLevel));
+    return {
+        range: TOOL_CONFIG.BLOWER.range + (level - 1) * 2, // 5, 7, 9, 11
+        distance: TOOL_CONFIG.BLOWER.distance,
+        coneAngle: TOOL_CONFIG.BLOWER.coneAngle,
+        blowStrength: TOOL_CONFIG.BLOWER.blowStrength + (level - 1) * 2, // 5, 7, 9, 11
+        falloffExponent: TOOL_CONFIG.BLOWER.falloffExponent,
+        minPushDistance: TOOL_CONFIG.BLOWER.minPushDistance,
+        tickInterval: TOOL_CONFIG.BLOWER.tickInterval,
+    };
+}

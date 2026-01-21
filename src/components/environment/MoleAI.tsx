@@ -14,9 +14,10 @@ interface MoleAIProps {
     leafApi: any;
     zoneMin: [number, number];
     zoneMax: [number, number];
+    scale?: number; // Optional scale for mole model
 }
 
-export function MoleAI({ position, radius, strength, interval, leafApi, zoneMin, zoneMax }: MoleAIProps) {
+export function MoleAI({ position, radius, strength, interval, leafApi, zoneMin, zoneMax, scale = 1.5 }: MoleAIProps) {
     const { scene: moleScene } = useGLTF('/mole.glb');
     const [isBlasting, setIsBlasting] = useState(false);
     const setAirVentActive = useGameStore(s => s.setAirVentActive);
@@ -161,7 +162,7 @@ export function MoleAI({ position, radius, strength, interval, leafApi, zoneMin,
 
             {/* 두더지 모델 */}
             <group ref={moleRef}>
-                <primitive object={moleScene} scale={0.5} rotation={[0, 0, 0]} />
+                <primitive object={moleScene} scale={scale} rotation={[0, 0, 0]} />
             </group>
 
             {/* 충격파 링 */}

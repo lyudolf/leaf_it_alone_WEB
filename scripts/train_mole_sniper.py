@@ -24,8 +24,8 @@ GRID_ROWS = 16
 CELL_SIZE = 1.5  # meters
 BOUNDS_X = (105, 135)  # Stage 5 X bounds
 BOUNDS_Z = (-12, 12)   # Stage 5 Z bounds
-MIN_DIST = 4.0
-MAX_DIST = 9.0
+MIN_DIST = 1.0
+MAX_DIST = 3.0
 CONE_HALF_ANGLE = 55  # degrees
 
 INPUT_SIZE = GRID_COLS * GRID_ROWS + 4  # 320 + 2 (pos) + 2 (dir) = 324
