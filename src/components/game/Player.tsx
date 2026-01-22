@@ -2,7 +2,7 @@
 
 import { useSphere } from '@react-three/cannon';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/game/store';
 
@@ -13,17 +13,34 @@ const JUMP_FORCE = 5;
 export function Player() {
     const { camera } = useThree();
     // Removed currentStage subscription to prevent potential re-mounting issues during transition
+    // Safe Spawn Logic: Start Static (mass 0) to wait for ground load, then wake up
+    const [isAwake, setAwake] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setAwake(true); // Enable gravity after 1s
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, []);
+
     const [ref, api] = useSphere(() => ({
-        mass: 1,
+        mass: 0, // Start floating
         type: 'Dynamic',
-        position: [0, 0.6, 0], // Stage 1 Spawn (0.6 center - 0.5 radius = 0.1 gap)
+        position: [0, 1, 0], // Start slightly higher safely
         fixedRotation: true,
-        args: [0.5], // Radius
+        args: [0.5],
         material: { friction: 0, restitution: 0 },
         linearDamping: 0.5,
         collisionFilterGroup: 1,
-        collisionFilterMask: 5 // Collides with Default (1) and Trees (4)
+        collisionFilterMask: 5
     }));
+
+    // Apply mass change when awake
+    useEffect(() => {
+        if (isAwake) {
+            api.mass.set(1);
+        }
+    }, [isAwake, api.mass]);
 
     // Subscribe to Position and Velocity
     const velocity = useRef([0, 0, 0]);
