@@ -82,7 +82,7 @@ interface GameState {
     setStageLoading: (loading: boolean) => void;
     setAirVentActive: (active: boolean) => void;
     triggerPlayerPush: (pos: [number, number, number], radius: number, strength: number) => void;
-    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI' | 'RAKE' | 'BLOWER', cost: number, value: number) => void;
+    purchaseUpgrade: (type: 'PICK_AMOUNT' | 'MONEY_MULTI' | 'RAKE' | 'BLOWER' | 'POTATO_AI' | 'CARROT_AI' | 'TOMATO_AI', cost: number, value: number) => void;
     setInteractionPrompt: (prompt: string | null) => void;
     setTornadoPosition: (pos: [number, number, number] | null) => void;
     nextStage: () => void;
@@ -91,6 +91,7 @@ interface GameState {
     startEndingVideo: () => void;
     stopEndingVideo: () => void;
     resetGame: () => void;
+    aiSellBag: (value: number) => void;
 
     // Create Mode Actions
     startGame: (createMode: boolean) => void;
@@ -213,7 +214,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         return { bags: state.bags.filter(b => b.id !== id) };
     }),
 
-    aiSellBag: (value) => set((state) => {
+    aiSellBag: (value: number) => set((state) => {
         const payout = Math.floor(value * state.moneyMultiplier);
         const newProcessed = state.processedLeavesTotal + value;
 
