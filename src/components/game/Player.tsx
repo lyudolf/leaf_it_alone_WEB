@@ -32,7 +32,7 @@ export function Player() {
         material: { friction: 0, restitution: 0 },
         linearDamping: 0.5,
         collisionFilterGroup: 1,
-        collisionFilterMask: 5
+        collisionFilterMask: 37 // Collides with Default(1), Trees(4), and TrashBin(32);
     }));
 
     // Apply mass change when awake

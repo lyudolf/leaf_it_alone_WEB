@@ -42,6 +42,7 @@ export function TrashBin({ position, rotation = [0, 0, 0], scale = 1 }: TrashBin
         position: [position[0], position[1] + binHeight / 2, position[2]],
         rotation: rotation,
         args: [1.5 * scale, binHeight, 1.5 * scale], // Slightly larger for easier hit
+        collisionFilterGroup: 32, // Dedicated group for checking collisions specifically
         userData: { type: 'bin' }, // Tag for collision detection
         onCollide: (e) => {
             const other = e.body as any;

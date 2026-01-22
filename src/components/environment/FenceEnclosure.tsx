@@ -25,6 +25,22 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore } from '@/game/store';
 
+function CeilingLid({ position, args }: { position: [number, number, number]; args: [number, number, number] }) {
+    const [ref] = useBox(() => ({
+        type: 'Static',
+        position,
+        args,
+        visible: false // Invisible physics body
+    }));
+
+    return (
+        <mesh ref={ref as any} visible={false}>
+            <boxGeometry args={args} />
+            <meshBasicMaterial color="red" wireframe opacity={0.5} transparent />
+        </mesh>
+    );
+}
+
 const FENCE_MODULE_LENGTH = 2; // meters (actual fence.glb unit length)
 const FENCE_OVERLAP = 0.4;
 const PLACEMENT_STEP = FENCE_MODULE_LENGTH - FENCE_OVERLAP; // 1.6m
@@ -56,13 +72,16 @@ function FenceModule({ position, rotation, extraHeight = 0 }: FenceModuleProps) 
     const collisionOffset = 0.3;
     const offsetX = Math.sin(rotation) * collisionOffset;
     const offsetZ = Math.cos(rotation) * collisionOffset;
-    // Fence height: Default 4.0 + extraHeight
-    const FENCE_HEIGHT = 4.0 + extraHeight;
+    // Fence height: Visual height based on prop
+    const VISUAL_HEIGHT = 4.0 + extraHeight;
+    // Physics height: Always at least 24m to prevent flying over
+    const PHYSICS_HEIGHT = Math.max(VISUAL_HEIGHT, 24.0);
 
     const [ref] = useBox(() => ({
         type: 'Static',
-        position: [position[0] + offsetX, position[1] + FENCE_HEIGHT / 2, position[2] + offsetZ],
-        args: [FENCE_MODULE_LENGTH, FENCE_HEIGHT, 0.15],
+        position: [position[0] + offsetX, position[1] + PHYSICS_HEIGHT / 2, position[2] + offsetZ],
+        // Increase thickness to 2.0 to prevent fast objects from tunneling through
+        args: [FENCE_MODULE_LENGTH, PHYSICS_HEIGHT, 2.0],
         rotation: [0, rotation, 0],
     }));
 
@@ -72,11 +91,11 @@ function FenceModule({ position, rotation, extraHeight = 0 }: FenceModuleProps) 
                 object={clonedScene}
                 position={position}
                 rotation={[0, rotation, 0]}
-                scale={[1, 2, 1]}
+                scale={[1, 1 + extraHeight / 2, 1]}
             />
-            {/* Collision box */}
+            {/* Debug Collision box */}
             <mesh ref={ref as any} visible={false}>
-                <boxGeometry args={[FENCE_MODULE_LENGTH, FENCE_HEIGHT, 0.15]} />
+                <boxGeometry args={[FENCE_MODULE_LENGTH, PHYSICS_HEIGHT, 2.0]} />
                 <meshBasicMaterial color="red" opacity={0.3} transparent wireframe />
             </mesh>
         </group>
@@ -212,6 +231,11 @@ export function FenceEnclosure() {
                     extraHeight={gate.x === 105 ? 20 : 0}
                 />
             ))}
+
+            {/* Global Ceiling for All Stages (1-5) */}
+            {/* Area: X[-15, 135], Z[-12, 12]. Center X=60, Z=0. Width=150, Depth=24. Height=24 */}
+            {/* Thicken ceiling to 5m to prevent tunneling */}
+            <CeilingLid position={[60, 26.5, 0]} args={[150, 5, 24]} />
         </group>
     );
 }
