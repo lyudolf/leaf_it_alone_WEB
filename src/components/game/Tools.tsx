@@ -324,85 +324,51 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
                 }
 
                 if (closestIdx !== -1) {
-                    if (pickAmount === 100) {
-                        // Special: Instant Bag Creation
-                        const spawnPos = new THREE.Vector3(positions[closestIdx * 3], 0.5, positions[closestIdx * 3 + 2]);
-                        const bagId = Math.random().toString(36).substr(2, 9);
-
-                        // 1. Add score and progress
-                        addLeaf(100);
-
-                        // 2. Create the bag entity
-                        createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
-
-                        // Trigger Tutorial
-                        useGameStore.getState().triggerBagTutorial();
-
-                        // 3. Immediately carry it
-                        setCarriedBag(bagId);
-
-                        // 4. Remove ground leaves (visual consumption)
-                        const targetIndices = [closestIdx];
+                    // Normal removal logic for ALL levels (including Max 100)
+                    // This ensures we only count ACTUAL leaves picked, preventing the "+100 score per click" exploit.
+                    const targetIndices = [closestIdx];
+                    if (pickAmount > 1) {
                         const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
+
+                        // For max level (100), increase radius slightly to ensure we catch enough leaves if available
+                        const pickupRadius = pickAmount >= 100 ? 2.5 : 1.0;
+
                         for (let i = 0; i < leafApi.count; i++) {
                             if (i === closestIdx) continue;
-                            if (targetIndices.length >= 100) break;
+                            if (targetIndices.length >= pickAmount) break;
                             p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                            if (p.distanceTo(centerP) < 2.5) { // Slightly larger radius for 100 leaves
+                            if (p.distanceTo(centerP) < pickupRadius) {
                                 targetIndices.push(i);
                             }
                         }
-                        targetIndices.forEach(idx => {
-                            positions[idx * 3 + 1] = -1000;
-                            const dummy = new THREE.Object3D();
-                            dummy.position.set(0, -1000, 0);
-                            dummy.updateMatrix();
-                            leafRef.current?.setMatrixAt(idx, dummy.matrix);
-                        });
-                        if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
-                    } else {
-                        // Normal removal
-                        const targetIndices = [closestIdx];
-                        if (pickAmount > 1) {
-                            const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
-                            for (let i = 0; i < leafApi.count; i++) {
-                                if (i === closestIdx) continue;
-                                if (targetIndices.length >= pickAmount) break;
-                                p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                                if (p.distanceTo(centerP) < 1.0) {
-                                    targetIndices.push(i);
-                                }
-                            }
-                        }
+                    }
 
-                        targetIndices.forEach(idx => {
-                            positions[idx * 3 + 1] = -1000;
-                            const dummy = new THREE.Object3D();
-                            dummy.position.set(0, -1000, 0);
-                            dummy.updateMatrix();
-                            leafRef.current?.setMatrixAt(idx, dummy.matrix);
-                        });
-                        if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
-                        if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
+                    targetIndices.forEach(idx => {
+                        positions[idx * 3 + 1] = -1000;
+                        const dummy = new THREE.Object3D();
+                        dummy.position.set(0, -1000, 0);
+                        dummy.updateMatrix();
+                        leafRef.current?.setMatrixAt(idx, dummy.matrix);
+                    });
+                    if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
 
-                        // Add leaves and check for bag creation threshold
-                        addLeaf(targetIndices.length);
+                    // Add leaves and check for bag creation threshold
+                    addLeaf(targetIndices.length);
 
-                        const currentScore = useGameStore.getState().score;
-                        if (currentScore >= 100) {
-                            // Spawn Bag at player's location (slightly forward)
-                            const spawnPos = new THREE.Vector3(0, 0, -1.0);
-                            spawnPos.applyQuaternion(camera.quaternion);
-                            spawnPos.add(camera.position);
-                            spawnPos.y = Math.max(0.5, spawnPos.y);
+                    const currentScore = useGameStore.getState().score;
+                    if (currentScore >= 100) {
+                        // Spawn Bag at player's location (slightly forward)
+                        const spawnPos = new THREE.Vector3(0, 0, -1.0);
+                        spawnPos.applyQuaternion(camera.quaternion);
+                        spawnPos.add(camera.position);
+                        spawnPos.y = Math.max(0.5, spawnPos.y);
 
-                            const bagId = Math.random().toString(36).substr(2, 9);
-                            createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
-                            setCarriedBag(bagId); // Auto-carry
+                        const bagId = Math.random().toString(36).substr(2, 9);
+                        createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
+                        setCarriedBag(bagId); // Auto-carry
 
-                            // Trigger Tutorial
-                            useGameStore.getState().triggerBagTutorial();
-                        }
+                        // Trigger Tutorial
+                        useGameStore.getState().triggerBagTutorial();
                     }
                 }
             }
