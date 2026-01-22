@@ -10,6 +10,14 @@ const SPEED = 5;
 const SPRINT_SPEED = 8;
 const JUMP_FORCE = 5;
 
+// Helper function to get spawn point for each stage
+function getSpawnPoint(stage: number): [number, number, number] {
+    // Each stage is offset by 30 units on X-axis
+    // Stage 1: x=0, Stage 2: x=30, Stage 3: x=60, Stage 4: x=90, Stage 5: x=120
+    const stageOffsetX = (stage - 1) * 30;
+    return [stageOffsetX, 1.6, 0]; // Y=1.6 to spawn at eye level
+}
+
 export function Player() {
     const { camera } = useThree();
     // Removed currentStage subscription to prevent potential re-mounting issues during transition
@@ -230,7 +238,20 @@ export function Player() {
             position.current[1] + 1.6, // Eye height
             position.current[2]
         );
+
+        // 6. Boundary Check & Respawn System
+        const currentStage = useGameStore.getState().currentStage;
+        const spawnPoint = getSpawnPoint(currentStage);
+
+        // Check if player has fallen out of bounds (Y < -10)
+        if (position.current[1] < -10) {
+            console.log('[Player] Out of bounds detected! Respawning at stage', currentStage);
+            api.position.set(spawnPoint[0], spawnPoint[1], spawnPoint[2]);
+            api.velocity.set(0, 0, 0);
+            pushVelocity.current.set(0, 0, 0);
+        }
     });
+
 
 
     return (
