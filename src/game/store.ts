@@ -118,7 +118,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     totalLeaves: 10000,
     totalCollected: 0,
     currentTool: 'HAND',
-    unlockedTools: ['HAND', 'VACUUM'],
+    unlockedTools: ['HAND'],
 
     isInventoryOpen: false,
     isShopOpen: false,

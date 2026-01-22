@@ -48,10 +48,10 @@ const PLACEMENT_STEP = FENCE_MODULE_LENGTH - FENCE_OVERLAP; // 1.6m
 interface FenceModuleProps {
     position: [number, number, number];
     rotation: number; // Y-axis rotation in radians
-    extraHeight?: number;
+    // extraHeight removed - purely internal now
 }
 
-function FenceModule({ position, rotation, extraHeight = 0 }: FenceModuleProps) {
+function FenceModule({ position, rotation }: FenceModuleProps) {
     const { scene } = useGLTF('/models/fence.glb');
     const clonedScene = scene.clone();
 
@@ -72,16 +72,20 @@ function FenceModule({ position, rotation, extraHeight = 0 }: FenceModuleProps) 
     const collisionOffset = 0.3;
     const offsetX = Math.sin(rotation) * collisionOffset;
     const offsetZ = Math.cos(rotation) * collisionOffset;
-    // Fence height: Visual height based on prop
-    const VISUAL_HEIGHT = 4.0 + extraHeight;
-    // Physics height: Always at least 24m to prevent flying over
-    const PHYSICS_HEIGHT = Math.max(VISUAL_HEIGHT, 24.0);
+
+    // Hardcoded Physics Height for invisible wall
+    // Visuals will be normal (~4m), Physics will be 24m
+    const PHYSICS_HEIGHT = 24.0;
 
     const [ref] = useBox(() => ({
         type: 'Static',
+        // Center of physics box (half up from 0)
+        // Note: useBox position is center of mass.
+        // We want bottom to be at position.y (0).
+        // So center y = position.y + PHYSICS_HEIGHT / 2.
         position: [position[0] + offsetX, position[1] + PHYSICS_HEIGHT / 2, position[2] + offsetZ],
-        // Increase thickness to 2.0 to prevent fast objects from tunneling through
-        args: [FENCE_MODULE_LENGTH, PHYSICS_HEIGHT, 2.0],
+        // Thickness 2.0 to block objects
+        args: [FENCE_MODULE_LENGTH, PHYSICS_HEIGHT, 0.2],
         rotation: [0, rotation, 0],
     }));
 
@@ -91,11 +95,12 @@ function FenceModule({ position, rotation, extraHeight = 0 }: FenceModuleProps) 
                 object={clonedScene}
                 position={position}
                 rotation={[0, rotation, 0]}
-                scale={[1, 1 + extraHeight / 2, 1]}
+                // Visual Scale fixed to standard height
+                scale={[1, 2, 1]}
             />
             {/* Debug Collision box */}
             <mesh ref={ref as any} visible={false}>
-                <boxGeometry args={[FENCE_MODULE_LENGTH, PHYSICS_HEIGHT, 2.0]} />
+                <boxGeometry args={[FENCE_MODULE_LENGTH, PHYSICS_HEIGHT, 0.2]} />
                 <meshBasicMaterial color="red" opacity={0.3} transparent wireframe />
             </mesh>
         </group>
@@ -110,10 +115,9 @@ interface DynamicGateProps {
     maxZ: number;
     FENCE_MODULE_LENGTH: number;
     PLACEMENT_STEP: number;
-    extraHeight?: number;
 }
 
-function DynamicGate({ x, stage, rotation, minZ, maxZ, FENCE_MODULE_LENGTH, PLACEMENT_STEP, extraHeight = 0 }: DynamicGateProps) {
+function DynamicGate({ x, stage, rotation, minZ, maxZ, FENCE_MODULE_LENGTH, PLACEMENT_STEP }: DynamicGateProps) {
     const currentStage = useGameStore(s => s.currentStage);
     const [isClosed, setIsClosed] = useState(true);
     const wasInside = useRef(false);
@@ -149,7 +153,7 @@ function DynamicGate({ x, stage, rotation, minZ, maxZ, FENCE_MODULE_LENGTH, PLAC
         const isCenter = z > -2.5 && z < 2.5;
         if (isCenter) {
             fences.push(
-                <FenceModule key={`gate-${stage}-${z}`} position={[x, 0, z]} rotation={rotation} extraHeight={extraHeight} />
+                <FenceModule key={`gate-${stage}-${z}`} position={[x, 0, z]} rotation={rotation} />
             );
         }
     }
@@ -168,16 +172,12 @@ export function FenceEnclosure() {
 
     // 1. NORTH WALL (Z = 12)
     for (let x = minX; x < maxX; x += PLACEMENT_STEP) {
-        // Stage 5 Area: X >= 105
-        const isStage5 = x >= 105;
-        fences.push(<FenceModule key={`N-${x}`} position={[x + FENCE_MODULE_LENGTH / 2, 0, maxZ]} rotation={Math.PI} extraHeight={isStage5 ? 20 : 0} />);
+        fences.push(<FenceModule key={`N-${x}`} position={[x + FENCE_MODULE_LENGTH / 2, 0, maxZ]} rotation={Math.PI} />);
     }
 
     // 2. SOUTH WALL (Z = -12)
     for (let x = minX; x < maxX; x += PLACEMENT_STEP) {
-        // Stage 5 Area: X >= 105
-        const isStage5 = x >= 105;
-        fences.push(<FenceModule key={`S-${x}`} position={[x + FENCE_MODULE_LENGTH / 2, 0, minZ]} rotation={0} extraHeight={isStage5 ? 20 : 0} />);
+        fences.push(<FenceModule key={`S-${x}`} position={[x + FENCE_MODULE_LENGTH / 2, 0, minZ]} rotation={0} />);
     }
 
     // 3. WEST WALL (X = -15) - Start
@@ -187,8 +187,7 @@ export function FenceEnclosure() {
 
     // 4. EAST WALL (X = 135) - End (Stage 5 End)
     for (let z = minZ + PLACEMENT_STEP; z < maxZ; z += PLACEMENT_STEP) {
-        // Always Stage 5
-        fences.push(<FenceModule key={`E-${z}`} position={[maxX, 0, z]} rotation={Math.PI / 2} extraHeight={20} />);
+        fences.push(<FenceModule key={`E-${z}`} position={[maxX, 0, z]} rotation={Math.PI / 2} />);
     }
 
     // 5. INNER BARRIERS (Gates)
@@ -205,13 +204,11 @@ export function FenceEnclosure() {
             {/* Divider Walls (Non-Gate parts) */}
             {gatePositions.map(gate => {
                 const wallParts = [];
-                // Stage 5 Divider (X=105)
-                const isStage5Gate = gate.x === 105;
 
                 for (let z = minZ + PLACEMENT_STEP; z < maxZ; z += PLACEMENT_STEP) {
                     const isCenter = z > -2.5 && z < 2.5;
                     if (!isCenter) {
-                        wallParts.push(<FenceModule key={`div-${gate.x}-${z}`} position={[gate.x, 0, z]} rotation={Math.PI / 2} extraHeight={isStage5Gate ? 20 : 0} />);
+                        wallParts.push(<FenceModule key={`div-${gate.x}-${z}`} position={[gate.x, 0, z]} rotation={Math.PI / 2} />);
                     }
                 }
                 return <group key={`divider-${gate.x}`}>{wallParts}</group>;
@@ -228,14 +225,13 @@ export function FenceEnclosure() {
                     maxZ={maxZ}
                     FENCE_MODULE_LENGTH={FENCE_MODULE_LENGTH}
                     PLACEMENT_STEP={PLACEMENT_STEP}
-                    extraHeight={gate.x === 105 ? 20 : 0}
                 />
             ))}
 
             {/* Global Ceiling for All Stages (1-5) */}
             {/* Area: X[-15, 135], Z[-12, 12]. Center X=60, Z=0. Width=150, Depth=24. Height=24 */}
-            {/* Thicken ceiling to 5m to prevent tunneling */}
-            <CeilingLid position={[60, 26.5, 0]} args={[150, 5, 24]} />
+            {/* Thicken ceiling to 5m to prevent tunneling. Widen to 30m/160m to overlap walls. */}
+            <CeilingLid position={[60, 26.5, 0]} args={[160, 5, 30]} />
         </group>
     );
 }

@@ -58,6 +58,19 @@ function ProgressHeader() {
     );
 }
 
+function UpgradeHint() {
+    const toggleShop = useGameStore(s => s.toggleShop);
+    return (
+        <button
+            onClick={toggleShop}
+            className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-yellow-500/30 text-yellow-400 flex items-center gap-2 mr-3 hover:bg-black/80 hover:scale-105 transition-all pointer-events-auto shadow-lg"
+        >
+            <span className="bg-yellow-500 text-black text-xs font-black px-1.5 py-0.5 rounded">U</span>
+            <span className="text-sm font-bold uppercase tracking-wider">Upgrade</span>
+        </button>
+    );
+}
+
 function MoneyDisplay() {
     const money = useGameStore(s => s.money);
     return (
@@ -410,7 +423,10 @@ export function UIOverlay() {
 
             {/* HUD Top Right */}
             <div className="absolute top-8 right-8 pointer-events-none flex flex-col items-end gap-2">
-                <MoneyDisplay />
+                <div className="flex items-center">
+                    <UpgradeHint />
+                    <MoneyDisplay />
+                </div>
                 {!isHelpOpen && (
                     <div className="bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur border border-white/10 animate-pulse">
                         Press <b>P</b> for Help

@@ -32,7 +32,7 @@ export function ShopUI() {
         if (pickAmount === 5) return { cost: 700, next: 10, desc: "손 줍기 (5 -> 10)" };
         if (pickAmount === 10) return { cost: 2100, next: 50, desc: "손 줍기 (10 -> 50)" };
         if (pickAmount === 50) return { cost: 5600, next: 100, desc: "원클릭 봉투화 (50 -> 100)" };
-        return { cost: 0, next: 100, desc: "마이다스의 손: 이제부터 낙엽을 봉투로 만듭니다" };
+        return { cost: 0, next: 100, desc: "한번 클릭 시 100개의 낙엽을 줍습니다." };
     };
 
     // Configuration for Money Multiplier
