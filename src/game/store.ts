@@ -74,6 +74,10 @@ interface GameState {
     toggleHelp: () => void;
     isIntroOpen: boolean;
     closeIntro: () => void;
+    isTutorialOpen: boolean;
+    closeTutorial: () => void;
+    isStageTutorialOpen: boolean;
+    closeStageTutorial: () => void;
     isBagTutorialOpen: boolean;
     triggerBagTutorial: () => void;
     closeBagTutorial: () => void;
@@ -250,7 +254,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     toggleHelp: () => set((state) => ({ isHelpOpen: !state.isHelpOpen })),
 
     isIntroOpen: true,
-    closeIntro: () => set({ isIntroOpen: false }),
+    closeIntro: () => set({ isIntroOpen: false, isTutorialOpen: true }),
+
+    isTutorialOpen: false,
+    closeTutorial: () => set({ isTutorialOpen: false }),
+
+    isStageTutorialOpen: false,
+    closeStageTutorial: () => set({ isStageTutorialOpen: false }),
 
     isBagTutorialOpen: false,
     hasSeenBagTutorial: false,
@@ -332,6 +342,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             totalCollected: 0,
             processedLeavesTotal: 0,
             stageCleared: false,
+            isStageTutorialOpen: true // Open tutorial for next stage
         });
 
         // Auto unlock tools
@@ -391,7 +402,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         isInventoryOpen: false,
         isShopOpen: false,
         isHelpOpen: false,
-        isIntroOpen: false
+        isIntroOpen: true,
+        isTutorialOpen: false,
+        isStageTutorialOpen: false
     }),
 
     setCustomLeafModel: (url) => set({ customLeafModel: url }),

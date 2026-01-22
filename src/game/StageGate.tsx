@@ -26,6 +26,10 @@ export function StageGate({ targetStage, position }: StageGateProps) {
     const isInteractive = currentStage === targetStage - 1;
     const isFinalGate = targetStage === 6; // Gate after Stage 5
 
+    const bags = useGameStore(s => s.bags);
+
+    // ...
+
     useEffect(() => {
         if (!isInteractive || isUnlocked) {
             setInteractionPrompt(null);
@@ -35,6 +39,12 @@ export function StageGate({ targetStage, position }: StageGateProps) {
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.code === 'KeyE' && isNearby.current && stageCleared) {
+                // Check for remaining bags
+                if (useGameStore.getState().bags.length > 0) {
+                    // Maybe flash a warning? The prompt handles the visual.
+                    return;
+                }
+
                 if (isFinalGate) {
                     // Trigger ending video for final gate
                     startEndingVideo();
@@ -64,10 +74,14 @@ export function StageGate({ targetStage, position }: StageGateProps) {
 
         if (nearby) {
             if (stageCleared) {
-                const promptText = isFinalGate
-                    ? "엔딩을 보려면 E키를 누르세요"
-                    : `${targetStage}단계를 해금하려면 E키를 누르세요`;
-                setInteractionPrompt(promptText);
+                if (bags.length > 0) {
+                    setInteractionPrompt(`남은 봉투가 ${bags.length}개 있습니다! 모두 처리하세요.`);
+                } else {
+                    const promptText = isFinalGate
+                        ? "엔딩을 보려면 E키를 누르세요"
+                        : `${targetStage}단계를 해금하려면 E키를 누르세요`;
+                    setInteractionPrompt(promptText);
+                }
             } else {
                 const goal = useGameStore.getState().totalLeavesInStage;
                 const current = useGameStore.getState().totalCollected;

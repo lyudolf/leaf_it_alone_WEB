@@ -8,7 +8,7 @@ import { useGLTF } from '@react-three/drei';
 
 const SPAWN_INTERVAL = 60; // 60s
 const LIFE_TIME = 12; // 12s
-const SUCTION_RADIUS = 4;
+const SUCTION_RADIUS = 13;
 const SUCTION_STRENGTH = 1.5;
 const ORBIT_RADIUS = 1.2;
 const ORBIT_SPEED = 3.0;

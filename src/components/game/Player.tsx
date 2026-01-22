@@ -20,7 +20,9 @@ export function Player() {
         fixedRotation: true,
         args: [0.5], // Radius
         material: { friction: 0, restitution: 0 },
-        linearDamping: 0.5
+        linearDamping: 0.5,
+        collisionFilterGroup: 1,
+        collisionFilterMask: 5 // Collides with Default (1) and Trees (4)
     }));
 
     // Subscribe to Position and Velocity
@@ -53,13 +55,25 @@ export function Player() {
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.code === 'Digit1') setTool('HAND');
-            if (e.code === 'Digit2') setTool('RAKE');
-            if (e.code === 'Digit3') setTool('BLOWER');
-            if (e.code === 'Digit4') setTool('VACUUM');
+            if (e.code === 'Digit2') {
+                if (useGameStore.getState().unlockedTools.includes('RAKE')) setTool('RAKE');
+            }
+            if (e.code === 'Digit3') {
+                if (useGameStore.getState().unlockedTools.includes('BLOWER')) setTool('BLOWER');
+            }
+            // if (e.code === 'Digit4') setTool('VACUUM'); // Testing mode: always allowed
 
             if (e.code === 'KeyE') {
                 if (useGameStore.getState().isIntroOpen) {
                     useGameStore.getState().closeIntro();
+                    return;
+                }
+                if (useGameStore.getState().isTutorialOpen) {
+                    useGameStore.getState().closeTutorial();
+                    return;
+                }
+                if (useGameStore.getState().isStageTutorialOpen) {
+                    useGameStore.getState().closeStageTutorial();
                     return;
                 }
                 if (useGameStore.getState().isBagTutorialOpen) {

@@ -145,10 +145,13 @@ function IntroPanel() {
                 </div>
 
                 <div className="mt-8 flex justify-center">
-                    <div className="flex items-center gap-2 bg-white text-black px-6 py-2 rounded-full font-bold animate-pulse">
+                    <button
+                        onClick={() => useGameStore.getState().closeIntro()}
+                        className="flex items-center gap-2 bg-white text-black px-6 py-2 rounded-full font-bold animate-pulse hover:scale-105 transition-transform"
+                    >
                         <span className="bg-black text-white px-2 rounded text-sm">E</span>
                         <span>닫기 / 시작하기</span>
-                    </div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -198,17 +201,184 @@ function BagTutorialPanel() {
     );
 }
 
+function TutorialPanel() {
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="bg-zinc-900 border-2 border-white/20 p-8 rounded-2xl shadow-2xl max-w-2xl w-full text-center animate-fade-in pointer-events-auto relative">
+                <div className="text-3xl font-black text-emerald-400 mb-8 tracking-tight border-b-2 border-white/10 pb-4">
+                    기초 조작 가이드
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 text-left mb-8">
+                    {/* Controls */}
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-white mb-4 border-l-4 border-emerald-500 pl-3">이동 및 액션</h3>
+                        <ul className="space-y-3 text-gray-300">
+                            <li className="flex items-center gap-3">
+                                <span className="bg-white/10 px-2 py-1 rounded text-yellow-400 font-bold font-mono text-sm border border-white/10">WASD</span>
+                                <span>이동 (Move)</span>
+                            </li>
+                            <li className="flex items-center gap-3">
+                                <span className="bg-white/10 px-2 py-1 rounded text-yellow-400 font-bold font-mono text-sm border border-white/10">Shift</span>
+                                <span>달리기 (Run)</span>
+                            </li>
+                            <li className="flex items-center gap-3">
+                                <span className="bg-white/10 px-2 py-1 rounded text-yellow-400 font-bold font-mono text-sm border border-white/10">Space</span>
+                                <span>점프! (Jump)</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* Mechanics */}
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-white mb-4 border-l-4 border-emerald-500 pl-3">채집 및 환전</h3>
+                        <ul className="space-y-3 text-gray-300">
+                            <li className="flex items-start gap-3">
+                                <span className="text-2xl pt-1">🍂</span>
+                                <div>
+                                    <div className="font-bold text-white">낙엽 줍기</div>
+                                    <div className="text-xs opacity-70">마우스 클릭으로 수집하세요.</div>
+                                </div>
+                            </li>
+                            <li className="flex items-start gap-3">
+                                <span className="text-2xl pt-1">💰</span>
+                                <div>
+                                    <div className="font-bold text-white">낙엽 봉투 (100개)</div>
+                                    <div className="text-xs opacity-70">100개를 모으면 봉투가 됩니다.<br />클릭해서 줍고, 쓰레기통에 넣으세요.</div>
+                                </div>
+                            </li>
+                            <li className="flex items-start gap-3">
+                                <span className="text-xl pt-1">🖱️</span>
+                                <div>
+                                    <div className="font-bold text-white">봉투 던지기</div>
+                                    <div className="text-xs opacity-70"><span className="text-yellow-400">클릭(들기) + 우클릭</span>으로 멀리 던집니다.</div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="bg-white/5 p-4 rounded-xl mb-8">
+                    <p className="text-emerald-200/80 italic font-medium">
+                        "[ 지켜본다, 당신의 끈기... ]"
+                    </p>
+                </div>
+
+                <div className="flex justify-center">
+                    <button
+                        onClick={() => useGameStore.getState().closeTutorial()}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-full font-bold transition-all hover:scale-105 shadow-lg shadow-emerald-900/50"
+                    >
+                        <span className="bg-black/30 px-2 py-0.5 rounded text-sm">E</span>
+                        <span>알겠습니다</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+
+function StageTutorialPanel() {
+    const currentStage = useGameStore(s => s.currentStage);
+    const closeStageTutorial = useGameStore(s => s.closeStageTutorial);
+
+    // Stage Config
+    const config = {
+        2: {
+            title: "STAGE 2: 새로운 도구",
+            color: "text-amber-400",
+            border: "border-amber-500",
+            items: [
+                { icon: "🧹", title: "갈퀴 (Rake)", desc: "키보드 [2], 클릭하면 낙엽이 모입니다!" },
+                { icon: "🐻", title: "두더지 출현", desc: "녀석은 절대 호의적이지 않습니다." }
+            ]
+        },
+        3: {
+            title: "STAGE 3: 바람의 힘",
+            color: "text-blue-400",
+            border: "border-blue-500",
+            items: [
+                { icon: "💨", title: "송풍기 (Blower)", desc: "키보드 [3], 클릭하면 낙엽을 밀어냅니다!" },
+                { icon: "💪", title: "강력해진 두더지", desc: "녀석들이 더 빠르고 강해집니다." },
+                { icon: "🤖", title: "AI 도우미", desc: "상점(U)에서 로봇을 고용해 보세요." }
+            ]
+        },
+        4: {
+            title: "STAGE 4: 거대 두더지",
+            color: "text-red-500",
+            border: "border-red-600",
+            items: [
+                { icon: "👑", title: "몰킹 등장", desc: "거대한 녀석이 나타납니다. 호락호락하지 않을 것." },
+                { icon: "🕳️", title: "배수관 환전", desc: "배수관에 낙엽을 밀어넣으면 자동 환전됩니다." }
+            ]
+        },
+        5: {
+            title: "STAGE 5: 대재앙",
+            color: "text-purple-500",
+            border: "border-purple-600",
+            items: [
+                { icon: "⚡", title: "천둥번개", desc: "천둥은 모든 낙엽을 혐오합니다." },
+                { icon: "🌪️", title: "설네이도", desc: "봉투를 조심하세요! 다 날아갑니다." },
+                { icon: "🎯", title: "료이키 설카이", desc: "스나이퍼 설토루가 당신을 노립니다." },
+                { icon: "🗑️", title: "쓰레기통 축소", desc: "쓰레기통이 더 작아집니다." },
+                { icon: "👑", title: "몰킹", desc: "ㅎㅇ" }
+            ]
+        }
+    };
+
+    const stageConfig = config[currentStage as keyof typeof config];
+    if (!stageConfig) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className={`bg-zinc-900 border-2 ${stageConfig.border} p-8 rounded-2xl shadow-2xl max-w-lg w-full text-center animate-bounce-in pointer-events-auto relative`}>
+                <div className={`text-3xl font-black ${stageConfig.color} mb-8 tracking-tight border-b-2 border-white/10 pb-4 uppercase`}>
+                    {stageConfig.title}
+                </div>
+
+                <div className="space-y-6 text-left mb-8">
+                    {stageConfig.items.map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-4 bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-colors">
+                            <span className="text-3xl">{item.icon}</span>
+                            <div>
+                                <div className={`font-bold text-xl ${stageConfig.color}`}>{item.title}</div>
+                                <div className="text-gray-300 text-sm mt-1 font-medium">{item.desc}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex justify-center">
+                    <button
+                        onClick={() => closeStageTutorial()}
+                        className={`flex items-center gap-2 bg-white text-black px-8 py-3 rounded-full font-bold transition-all hover:scale-105 shadow-lg`}
+                    >
+                        <span className="bg-black text-white px-2 py-0.5 rounded text-sm">E</span>
+                        <span>도전하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function UIOverlay() {
     const isInventoryOpen = useGameStore(s => s.isInventoryOpen);
     const isShopOpen = useGameStore(s => s.isShopOpen);
     const isHelpOpen = useGameStore(s => s.isHelpOpen);
     const isIntroOpen = useGameStore(s => s.isIntroOpen);
+    const isTutorialOpen = useGameStore(s => s.isTutorialOpen);
+    const isStageTutorialOpen = useGameStore(s => s.isStageTutorialOpen);
     const isBagTutorialOpen = useGameStore(s => s.isBagTutorialOpen);
     const interactionPrompt = useGameStore(s => s.interactionPrompt);
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6">
             {isIntroOpen && <IntroPanel />}
+            {isTutorialOpen && <TutorialPanel />}
+            {isStageTutorialOpen && <StageTutorialPanel />}
             {isBagTutorialOpen && <BagTutorialPanel />}
             {isInventoryOpen && <InventoryUI />}
             {isShopOpen && <ShopUI />}

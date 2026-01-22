@@ -77,7 +77,7 @@ export function LoadingScreen() {
 
             const interval = setInterval(() => {
                 setLeaves(prev => {
-                    const id = Date.now();
+                    const id = Date.now() + Math.random();
                     const newLeaf = {
                         id,
                         left: Math.random() * 100, // Random horizontal pos

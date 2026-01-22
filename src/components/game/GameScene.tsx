@@ -6,7 +6,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { LeafManager } from './LeafManager';
 import { Tools } from './Tools';
 import { Player } from './Player';
-import { Sky, PointerLockControls, Environment } from '@react-three/drei';
+import { Sky, PointerLockControls, Environment, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { TrashBin } from '@/game/TrashBin';
@@ -37,6 +37,11 @@ import { TomatoSH } from '@/components/environment/props/TomatoSH';
 
 import { ZONES } from '@/spec/zones';
 
+
+
+
+// ... imports ...
+
 function Ground() {
     const currentStage = useGameStore(s => s.currentStage);
     const zone = ZONES[`zone${currentStage}`] || ZONES.zone1;
@@ -52,10 +57,15 @@ function Ground() {
         material: { friction: 0.1 }
     }));
 
+    // Start loading texture
+    const texture = useTexture("/textures/grass.png");
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(width / 2, depth / 2); // Tiling based on size
+
     return (
         <mesh ref={ref as any} rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[centerX, 0, centerZ]}>
             <planeGeometry args={[width, depth]} />
-            <meshStandardMaterial color="#4a7c38" roughness={1} />
+            <meshStandardMaterial map={texture} color="#88aa88" roughness={0.8} />
         </mesh>
     );
 }
@@ -219,9 +229,20 @@ export function GameScene() {
                                 scale={1.5}
                             />
                         )}
-                        {/* Stage 5: MoleSniper (ONNX AI) replaces regular MoleAI */}
                         {currentStage === 5 && leafApi && (
-                            <MoleSniper leafApi={leafApi} />
+                            <>
+                                <MoleSniper leafApi={leafApi} />
+                                <MoleAI
+                                    position={[120, 0, 0]}
+                                    radius={5}
+                                    strength={8}
+                                    interval={7000}
+                                    leafApi={leafApi}
+                                    zoneMin={[105, -12]}
+                                    zoneMax={[135, 12]}
+                                    scale={1.5}
+                                />
+                            </>
                         )}
 
                         {/* Trash Bin(s) */}
@@ -234,7 +255,9 @@ export function GameScene() {
                     </Suspense>
 
                     {/* Player & Tools - Should never unmount during stage change */}
-                    {leafApi && leafRef && <Tools leafApi={leafApi} leafRef={leafRef} />}
+                    <Suspense fallback={null}>
+                        {leafApi && leafRef && <Tools leafApi={leafApi} leafRef={leafRef} />}
+                    </Suspense>
                     <Player />
 
                     {/* Stage Transition Gates */}

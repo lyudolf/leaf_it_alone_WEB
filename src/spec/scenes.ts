@@ -22,9 +22,9 @@ export const SCENES: SceneConfig[] = [
         trashBins: [{ position: [12, 0, 9] }],
         house: { position: [-12, 0, -8], scale: 3.5 },
         trees: [
-            { position: [5, 0, -6], scale: 1.0 },
-            { position: [-5, 0, 8], scale: 1.2 },
-            { position: [8, 0, 9], scale: 0.7 },
+            { position: [5, 0, -6], scale: 3.0 },
+            { position: [-5, 0, 8], scale: 3.6 },
+            { position: [8, 0, 9], scale: 4.0 },
         ],
         vents: []
     },
@@ -36,9 +36,9 @@ export const SCENES: SceneConfig[] = [
         trashBins: [{ position: [42, 0, 9] }],
         house: { position: [18, 0, -8], scale: 3.5 },
         trees: [
-            { position: [25, 0, -7], scale: 1.5 },
-            { position: [35, 0, 6], scale: 1.1 },
-            { position: [42, 0, -4], scale: 1.4 },
+            { position: [25, 0, -7], scale: 4.5 },
+            { position: [35, 0, 6], scale: 3.3 },
+            { position: [42, 0, -4], scale: 4.2 },
         ],
         vents: [{ position: [30, 0, 0], radius: 3, strength: 15 }],
         planters: [{ position: [25, 0, -9], rotation: [0, 0, 0] }],
@@ -52,8 +52,8 @@ export const SCENES: SceneConfig[] = [
         trashBins: [{ position: [72, 0, 9] }],
         house: { position: [48, 0, -8], scale: 3.5 },
         trees: [
-            { position: [60, 0, -4], scale: 1.8 },
-            { position: [50, 0, 8], scale: 1.5 },  // Moved from [70,0,8] to avoid blocking trash bin
+            { position: [60, 0, -4], scale: 6.0 },
+            { position: [50, 0, 8], scale: 7.0 },  // Moved from [70,0,8] to avoid blocking trash bin
         ],
         vents: [{ position: [60, 0, 4], radius: 3, strength: 15 }]
     },
@@ -67,7 +67,7 @@ export const SCENES: SceneConfig[] = [
             { position: [102, 0, 9] }   // Top Right
         ],
         house: { position: [78, 0, -8], scale: 3.5 },
-        trees: [{ position: [90, 0, -11], scale: 2.2 }],  // Moved to back edge center
+        trees: [{ position: [90, 0, -11], scale: 10.0 }],  // Moved to back edge center
         vents: [{ position: [85, 0, -4], radius: 4, strength: 18 }],
         drains: [{ position: [103, 0, -10], radius: 1.0 }] // Bottom-right corner (away from bins/house)
     },

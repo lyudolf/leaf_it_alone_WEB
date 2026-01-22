@@ -1,6 +1,7 @@
 'use client';
 
 import { useFrame, useThree } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import { useGameStore } from '@/game/store';
 import { TOOL_CONFIG, getRakeConfig, getBlowerConfig } from '@/game/toolConfig';
 import * as THREE from 'three';
@@ -9,6 +10,187 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 interface ToolsProps {
     leafApi: any;
     leafRef: React.RefObject<THREE.InstancedMesh>;
+}
+
+// Models must be preloaded or loaded in parent to prevent Suspense on switch
+// Models must be preloaded or loaded in parent to prevent Suspense on switch
+function HandModel({ active, side = 'right', scene }: { active: boolean; side?: 'left' | 'right'; scene: THREE.Group }) {
+    const { camera, clock } = useThree();
+    const group = useRef<THREE.Group>(null);
+    const clone = useMemo(() => scene.clone(), [scene]);
+
+    // ... animation logic remains same ...
+    useFrame((state, delta) => {
+        if (!group.current) return;
+
+        // HUD Position relative to camera
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+        // Base offset
+        const sideMultiplier = side === 'right' ? 1 : -1;
+        const offset = new THREE.Vector3()
+            .add(forward.clone().multiplyScalar(0.5)) // Distance from camera
+            .add(right.clone().multiplyScalar(0.3 * sideMultiplier))   // Right/Left
+            .add(up.clone().multiplyScalar(-0.3));    // Down
+
+        // Reach animation
+        const reach = active ? 0.3 : 0.0;
+        const reachOffset = forward.clone().multiplyScalar(reach);
+
+        // Bobbing
+        const time = state.clock.elapsedTime;
+        const bobPhase = side === 'right' ? 0 : Math.PI;
+        const bob = up.clone().multiplyScalar(Math.sin(time * 2 + bobPhase) * 0.01);
+
+        const target = camera.position.clone().add(offset).add(reachOffset).add(bob);
+
+        group.current.position.lerp(target, delta * 15);
+        group.current.quaternion.copy(camera.quaternion);
+        if (active) {
+            group.current.rotateX(-0.2);
+            group.current.rotateZ(-0.2 * sideMultiplier);
+        }
+    });
+
+    const scale = side === 'right' ? [0.3, 0.3, 0.3] : [-0.3, 0.3, 0.3];
+    const rotation: [number, number, number] = side === 'right'
+        ? [250, 80, 0]
+        : [250, 80, 0];
+
+    return (
+        <group ref={group}>
+            <primitive object={clone} scale={scale} rotation={rotation} />
+        </group>
+    );
+}
+
+function RakeModel({ active, scene }: { active: boolean; scene: THREE.Group }) {
+    const { camera } = useThree();
+    const group = useRef<THREE.Group>(null);
+    const clone = useMemo(() => scene.clone(), [scene]);
+    const cycle = useRef(0);
+
+    useFrame((state, delta) => {
+        if (!group.current) return;
+
+        // Position: Bottom Right
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+        const offset = new THREE.Vector3()
+            .add(forward.clone().multiplyScalar(2))
+            .add(right.clone().multiplyScalar(0.5))
+            .add(up.clone().multiplyScalar(0));
+
+        let animOffset = new THREE.Vector3();
+        let animRot = 0;
+
+        if (active) {
+            // Raking Cycle: Play once per click
+            if (cycle.current < 1) {
+                cycle.current += delta * 2.5; // Speed
+                if (cycle.current > 1) cycle.current = 1; // Clamp at end
+            }
+
+            const t = cycle.current;
+
+            if (t < 0.4) {
+                // Extend
+                animOffset.add(forward.clone().multiplyScalar(t * 1.5)); // push out
+                animRot = -t * 0.5; // tilt up slightly
+            } else if (t < 0.6) {
+                // Down (Dig)
+                animOffset.add(forward.clone().multiplyScalar(0.6));
+                animOffset.add(up.clone().multiplyScalar(-(t - 0.4)));
+                animRot = 0.5; // tilt down
+            } else {
+                // Pull back
+                const pull = 1 - (t - 0.6) / 0.4; // 1 -> 0
+                animOffset.add(forward.clone().multiplyScalar(pull * 0.6));
+                animRot = -0.2;
+            }
+        } else {
+            // Reset when released
+            cycle.current = 0;
+            const time = state.clock.elapsedTime;
+            animOffset.add(up.clone().multiplyScalar(Math.sin(time * 1.5) * 0.02));
+        }
+
+        const target = camera.position.clone().add(offset).add(animOffset);
+
+        group.current.position.lerp(target, delta * 20);
+        group.current.quaternion.copy(camera.quaternion);
+        group.current.rotateX(animRot);
+    });
+
+    return (
+        <group ref={group}>
+            <primitive object={clone} scale={1} rotation={[90, 135, 0]} />
+        </group>
+    );
+}
+
+function BlowerModel({ active }: { active: boolean }) {
+    const { camera } = useThree();
+    const group = useRef<THREE.Group>(null);
+
+    useFrame((state, delta) => {
+        if (!group.current) return;
+
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+        const offset = new THREE.Vector3()
+            .add(forward.clone().multiplyScalar(0.4))
+            .add(right.clone().multiplyScalar(0.3))
+            .add(up.clone().multiplyScalar(-0.3));
+
+        const time = state.clock.elapsedTime;
+
+        // Idle bob
+        let bob = up.clone().multiplyScalar(Math.sin(time) * 0.01);
+
+        // Active Vibration/Recoil
+        if (active) {
+            const shake = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02
+            );
+            bob.add(shake);
+            // Recoil
+            bob.add(forward.clone().multiplyScalar(-0.05));
+        }
+
+        const target = camera.position.clone().add(offset).add(bob);
+
+        group.current.position.lerp(target, delta * 10);
+        group.current.quaternion.copy(camera.quaternion);
+    });
+
+    return (
+        <group ref={group}>
+            {/* Body */}
+            <mesh position={[0, 0, 0.1]} castShadow>
+                <boxGeometry args={[0.15, 0.2, 0.3]} />
+                <meshStandardMaterial color="#ef4444" /> {/* Red Body */}
+            </mesh>
+            {/* Handle */}
+            <mesh position={[0, 0.15, 0]}>
+                <boxGeometry args={[0.05, 0.1, 0.2]} />
+                <meshStandardMaterial color="#111827" />
+            </mesh>
+            {/* Nozzle */}
+            <mesh position={[0, 0, -0.3]} rotation={[1.57, 0, 0]} castShadow>
+                <cylinderGeometry args={[0.04, 0.06, 0.5, 16]} />
+                <meshStandardMaterial color="#1f2937" />
+            </mesh>
+        </group>
+    );
 }
 
 export function Tools({ leafApi, leafRef }: ToolsProps) {
@@ -24,9 +206,13 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
         score
     } = useGameStore();
 
+    // Preload/Load models here so they are ready before unconditional render
+    const handGLTF = useGLTF('/models/hand.glb');
+    const rakeGLTF = useGLTF('/models/rake.glb');
+
     // Raycaster for interaction (Hand tool)
     const raycaster = useMemo(() => new THREE.Raycaster(), []);
-    const { camera, scene } = useThree();
+    const { camera, scene, clock } = useThree();
     const toolPosition = useRef(new THREE.Vector3());
 
     const [isMouseDown, setIsMouseDown] = useState(false);
@@ -254,10 +440,19 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
         const hit = raycaster.ray.intersectPlane(groundPlane, hitPoint);
 
         if (hit) {
-            toolPosition.current.copy(hitPoint);
+            // Clamp reach to prevent infinite interaction
+            const dist = hitPoint.distanceTo(camera.position);
+            const MAX_REACH = 6.0;
+
+            if (dist > MAX_REACH) {
+                const dir = hitPoint.sub(camera.position).normalize();
+                toolPosition.current.copy(camera.position).add(dir.multiplyScalar(MAX_REACH));
+            } else {
+                toolPosition.current.copy(hitPoint);
+            }
         } else {
             const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-            toolPosition.current.copy(camera.position).add(forward.multiplyScalar(5));
+            toolPosition.current.copy(camera.position).add(forward.multiplyScalar(4));
         }
 
         // HAND tool logic is now primarily in the useEffect for mousedown
@@ -283,7 +478,7 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
             const blowerPos = camera.position.clone().add(forward.multiplyScalar(blowerConfig.distance));
 
             applyBlowerForces(leafApi, blowerPos, camera, blowerConfig);
-        }
+        };
 
         if (currentTool === 'VACUUM' && isMouseDown) {
             const now = state.clock.elapsedTime * 1000;
@@ -294,10 +489,29 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
 
             applyVacuumCollector(leafApi, leafRef, camera, config, addLeaf, createBag);
         }
-    });
+    }, []);
 
-    return null;
+    const showDualHands = pickAmount >= 10;
+    const time = clock.elapsedTime;
+    const cycle = (time * 5) % 2;
+    const rightActive = isMouseDown && (!showDualHands || cycle < 1);
+    const leftActive = isMouseDown && showDualHands && cycle >= 1;
+
+    return (
+        <>
+            {currentTool === 'HAND' && (
+                <>
+                    <HandModel active={rightActive} side="right" scene={handGLTF.scene} />
+                    {showDualHands && <HandModel active={leftActive} side="left" scene={handGLTF.scene} />}
+                </>
+            )}
+            {currentTool === 'RAKE' && <RakeModel active={isMouseDown} scene={rakeGLTF.scene} />}
+            {currentTool === 'BLOWER' && <BlowerModel active={isMouseDown} />}
+        </>
+    );
 }
+
+// Logic Components (Separated to avoid cluttering main render)
 
 function applyVacuumCollector(
     api: any,
@@ -462,3 +676,7 @@ function applyBlowerForces(
         }
     }
 }
+
+// Preload models to avoid suspense on tool switch
+useGLTF.preload('/models/hand.glb');
+useGLTF.preload('/models/lake.glb');

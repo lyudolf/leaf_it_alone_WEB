@@ -33,6 +33,8 @@ export function LeafBag({ id, initialPos }: { id: string; initialPos: [number, n
         mass: 5,
         position: initialPos,
         args: [0.4, 0.4, 0.4],
+        collisionFilterGroup: 1,
+        collisionFilterMask: 5, // Collide with Ground(1) and Trees(4)
         userData: { bagId: id },
         onCollide: (e) => {
             const otherBody = e.body as any;
