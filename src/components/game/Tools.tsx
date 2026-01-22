@@ -383,7 +383,26 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
                             leafRef.current?.setMatrixAt(idx, dummy.matrix);
                         });
                         if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
+                        if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
+
+                        // Add leaves and check for bag creation threshold
                         addLeaf(targetIndices.length);
+
+                        const currentScore = useGameStore.getState().score;
+                        if (currentScore >= 100) {
+                            // Spawn Bag at player's location (slightly forward)
+                            const spawnPos = new THREE.Vector3(0, 0, -1.0);
+                            spawnPos.applyQuaternion(camera.quaternion);
+                            spawnPos.add(camera.position);
+                            spawnPos.y = Math.max(0.5, spawnPos.y);
+
+                            const bagId = Math.random().toString(36).substr(2, 9);
+                            createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
+                            setCarriedBag(bagId); // Auto-carry
+
+                            // Trigger Tutorial
+                            useGameStore.getState().triggerBagTutorial();
+                        }
                     }
                 }
             }
