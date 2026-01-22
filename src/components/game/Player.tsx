@@ -16,7 +16,7 @@ export function Player() {
     const [ref, api] = useSphere(() => ({
         mass: 1,
         type: 'Dynamic',
-        position: [0, 2, 0], // Stage 1 Spawn
+        position: [0, 1, 0], // Stage 1 Spawn
         fixedRotation: true,
         args: [0.5], // Radius
         material: { friction: 0, restitution: 0 },
