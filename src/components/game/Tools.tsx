@@ -489,7 +489,7 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
 
             applyVacuumCollector(leafApi, leafRef, camera, config, addLeaf, createBag);
         }
-    }, []);
+    });
 
     const showDualHands = pickAmount >= 10;
     const time = clock.elapsedTime;
