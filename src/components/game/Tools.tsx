@@ -322,20 +322,20 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
             const ray = raycaster.ray;
 
             let closestIdx = -1;
-            let closestDist = 4.5; // Reach
+            let closestDistSq = 4.5 * 4.5; // Reach squared
 
             for (let i = 0; i < leafApi.count; i++) {
                 p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                if (p.distanceTo(camera.position) > 5) continue; // Optimization
+                if (p.distanceToSquared(camera.position) > 25) continue; // Optimization: 5*5=25
 
                 // Closest point on ray
                 const pointOnRay = new THREE.Vector3();
                 ray.closestPointToPoint(p, pointOnRay);
-                const period = 0.2;
-                const dist = p.distanceTo(pointOnRay);
+                const distSqPoint = p.distanceToSquared(pointOnRay);
+                const distSqCam = p.distanceToSquared(camera.position);
 
-                if (dist < 0.8 && p.distanceTo(camera.position) < closestDist) {
-                    closestDist = p.distanceTo(camera.position);
+                if (distSqPoint < 0.64 && distSqCam < closestDistSq) { // 0.8 * 0.8 = 0.64
+                    closestDistSq = distSqCam;
                     closestIdx = i;
                 }
             }
@@ -344,13 +344,13 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
                 const targetIndices = [closestIdx];
                 if (pickAmount > 1) {
                     const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
-                    const pickupRadius = pickAmount >= 100 ? 2.5 : 1.0;
+                    const pickupRadiusSq = pickAmount >= 100 ? 6.25 : 1.0; // 2.5*2.5 or 1*1
 
                     for (let i = 0; i < leafApi.count; i++) {
                         if (i === closestIdx) continue;
                         if (targetIndices.length >= pickAmount) break;
                         p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                        if (p.distanceTo(centerP) < pickupRadius) {
+                        if (p.distanceToSquared(centerP) < pickupRadiusSq) {
                             targetIndices.push(i);
                         }
                     }
@@ -631,4 +631,4 @@ function applyBlowerForces(
 
 // Preload models to avoid suspense on tool switch
 useGLTF.preload('/models/hand.glb');
-useGLTF.preload('/models/lake.glb');
+useGLTF.preload('/models/rake.glb');

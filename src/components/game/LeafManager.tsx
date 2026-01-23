@@ -251,64 +251,71 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
                 velocities[idx + 2] = 0;
             }
 
-            // House and Tree Collision Detection
-            const scene = SCENES[currentStage - 1];
-            if (scene) {
-                // House collision
-                if (scene.house) {
-                    const hPos = scene.house.position;
-                    const hScale = scene.house.scale;
-                    const halfSize = (2.2 * hScale) / 2;
+            // --- OPTIMIZATION STARTS HERE ---
+            // Only perform heavy collision checks (House/Tree) every 3rd frame per leaf
+            // We use (i % 3) to distribute the load evenly across frames
+            const frameIndex = Math.floor(now * 60); // approximate frame count
+            if (i % 3 === frameIndex % 3) {
+                // House and Tree Collision Detection
+                const scene = SCENES[currentStage - 1];
+                if (scene) {
+                    // House collision
+                    if (scene.house) {
+                        const hPos = scene.house.position;
+                        const hScale = scene.house.scale;
+                        const halfSize = (2.2 * hScale) / 2;
 
-                    // Asymmetric blocking: Extend 2m behind (negative Z)
-                    const backBias = 2.0;
-                    const centerZ = hPos[2] - (backBias / 2);
-                    const halfZ = halfSize + (backBias / 2);
+                        // Asymmetric blocking: Extend 2m behind (negative Z)
+                        const backBias = 2.0;
+                        const centerZ = hPos[2] - (backBias / 2);
+                        const halfZ = halfSize + (backBias / 2);
 
-                    // Check collision with biased box
-                    if (Math.abs(positions[idx] - hPos[0]) < halfSize &&
-                        Math.abs(positions[idx + 2] - centerZ) < halfZ &&
-                        positions[idx + 1] < 20.0) { // Extended height blockage (20m) to prevent flying over house
+                        // Check collision with biased box
+                        if (Math.abs(positions[idx] - hPos[0]) < halfSize &&
+                            Math.abs(positions[idx + 2] - centerZ) < halfZ &&
+                            positions[idx + 1] < 20.0) { // Extended height blockage (20m) to prevent flying over house
 
-                        // Push leaf out of house (using biased center)
-                        const dx = positions[idx] - hPos[0];
-                        const dz = positions[idx + 2] - centerZ;
+                            // Push leaf out of house (using biased center)
+                            const dx = positions[idx] - hPos[0];
+                            const dz = positions[idx + 2] - centerZ;
 
-                        if (Math.abs(dx) > Math.abs(dz)) { // Only if relatively closer to side
-                            // Push to side
-                            positions[idx] = hPos[0] + (dx > 0 ? halfSize : -halfSize);
-                            velocities[idx] = 0;
-                        } else {
-                            // Push to front/back (using biased z-edges)
-                            positions[idx + 2] = centerZ + (dz > 0 ? halfZ : -halfZ);
-                            velocities[idx + 2] = 0;
+                            if (Math.abs(dx) > Math.abs(dz)) { // Only if relatively closer to side
+                                // Push to side
+                                positions[idx] = hPos[0] + (dx > 0 ? halfSize : -halfSize);
+                                velocities[idx] = 0;
+                            } else {
+                                // Push to front/back (using biased z-edges)
+                                positions[idx + 2] = centerZ + (dz > 0 ? halfZ : -halfZ);
+                                velocities[idx + 2] = 0;
+                            }
+                        }
+                    }
+
+                    // Tree collision
+                    for (const tree of scene.trees) {
+                        const tPos = tree.position;
+                        const tScale = tree.scale;
+                        const dx = positions[idx] - tPos[0];
+                        const dz = positions[idx + 2] - tPos[2];
+                        const distSq = dx * dx + dz * dz;
+                        const radius = 0.4 * tScale; // Trunk radius
+
+                        if (distSq < radius * radius && positions[idx + 1] < 4 * tScale) {
+                            // Push leaf out of tree trunk
+                            const dist = Math.sqrt(distSq);
+                            if (dist > 0.01) {
+                                const pushX = (dx / dist) * radius;
+                                const pushZ = (dz / dist) * radius;
+                                positions[idx] = tPos[0] + pushX;
+                                positions[idx + 2] = tPos[2] + pushZ;
+                                // Damping instead of hard stop (better for staggered checks)
+                                velocities[idx] *= 0.5;
+                                velocities[idx + 2] *= 0.5;
+                            }
                         }
                     }
                 }
-
-                // Tree collision
-                for (const tree of scene.trees) {
-                    const tPos = tree.position;
-                    const tScale = tree.scale;
-                    const dx = positions[idx] - tPos[0];
-                    const dz = positions[idx + 2] - tPos[2];
-                    const distSq = dx * dx + dz * dz;
-                    const radius = 0.4 * tScale; // Trunk radius
-
-                    if (distSq < radius * radius && positions[idx + 1] < 4 * tScale) {
-                        // Push leaf out of tree trunk
-                        const dist = Math.sqrt(distSq);
-                        if (dist > 0.01) {
-                            const pushX = (dx / dist) * radius;
-                            const pushZ = (dz / dist) * radius;
-                            positions[idx] = tPos[0] + pushX;
-                            positions[idx + 2] = tPos[2] + pushZ;
-                            velocities[idx] = 0;
-                            velocities[idx + 2] = 0;
-                        }
-                    }
-                }
-            }
+            } // End of staggered check
 
             // Ground Collision
             if (positions[idx + 1] <= GROUND_Y) {
