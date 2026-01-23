@@ -103,7 +103,7 @@ export function Player() {
             if (e.code === 'Digit3') {
                 if (useGameStore.getState().unlockedTools.includes('BLOWER')) setTool('BLOWER');
             }
-            // if (e.code === 'Digit4') setTool('VACUUM'); // Testing mode: always allowed
+            if (e.code === 'Digit4') setTool('VACUUM'); // Testing mode: always allowed
 
             if (e.code === 'KeyE') {
                 if (useGameStore.getState().isEndingOpen) {
