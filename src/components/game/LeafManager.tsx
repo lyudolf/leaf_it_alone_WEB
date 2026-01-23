@@ -225,6 +225,22 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             let vy = velocities[idx + 1];
             let vz = velocities[idx + 2];
 
+            // SPEED OPTIMIZATION: Sleep Check
+            // If leaf is on ground, not moving, and no wind -> Skip Physics
+            const isGrounded = positions[idx + 1] <= GROUND_Y + 0.001;
+            const speedSq = vx * vx + vy * vy + vz * vz;
+            const isWindy = windVector.current.lengthSq() > 0.1; // Check if effective wind exists
+
+            if (isGrounded && speedSq < 0.001 && !isWindy) {
+                // Ensure completely stopped to prevent micro-drift
+                if (speedSq > 0) {
+                    velocities[idx] = 0;
+                    velocities[idx + 1] = 0;
+                    velocities[idx + 2] = 0;
+                }
+                continue; // SLEEP: Skip everything else
+            }
+
             if (positions[idx + 1] > GROUND_Y) {
                 vy += GRAVITY * dt;
                 vx += windVector.current.x * dt * 0.5;
@@ -236,8 +252,8 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             positions[idx + 2] += vz * dt;
 
             // Zone Containment (Respawn if out of bounds + 0.25 margin)
-            // OPTIMIZATION: Check only once per second (approx 60 frames) per leaf
-            if (i % 60 === frameIndex % 60) {
+            // OPTIMIZATION: Check only once per 5 seconds (approx 300 frames) per leaf
+            if (i % 300 === frameIndex % 300) {
                 const MARGIN = 0.25;
                 if (positions[idx] < currentZone.minX - MARGIN ||
                     positions[idx] > currentZone.maxX + MARGIN ||
@@ -328,6 +344,10 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
                 vz *= 0.8;
                 rotations[idx] *= 0.9;
                 rotations[idx + 2] *= 0.9;
+
+                // Snap to zero if very slow (enables sleep next frame)
+                if (Math.abs(vx) < 0.05) vx = 0;
+                if (Math.abs(vz) < 0.05) vz = 0;
             } else {
                 vx *= 0.99;
                 vz *= 0.99;
