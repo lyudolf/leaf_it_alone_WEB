@@ -215,6 +215,7 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
         }
 
         const currentZone = ZONES[`zone${currentStage}`] || ZONES.zone1;
+        const frameIndex = Math.floor(now * 60); // approximate frame count (moved up for scope)
 
         for (let i = 0; i < LEAF_COUNT; i++) {
             const idx = i * 3;
@@ -235,26 +236,28 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             positions[idx + 2] += vz * dt;
 
             // Zone Containment (Respawn if out of bounds + 0.25 margin)
-            const MARGIN = 0.25;
-            if (positions[idx] < currentZone.minX - MARGIN ||
-                positions[idx] > currentZone.maxX + MARGIN ||
-                positions[idx + 2] < currentZone.minZ - MARGIN ||
-                positions[idx + 2] > currentZone.maxZ + MARGIN) {
+            // OPTIMIZATION: Check only once per second (approx 60 frames) per leaf
+            if (i % 60 === frameIndex % 60) {
+                const MARGIN = 0.25;
+                if (positions[idx] < currentZone.minX - MARGIN ||
+                    positions[idx] > currentZone.maxX + MARGIN ||
+                    positions[idx + 2] < currentZone.minZ - MARGIN ||
+                    positions[idx + 2] > currentZone.maxZ + MARGIN) {
 
-                // Respawn from sky within zone
-                positions[idx] = currentZone.minX + Math.random() * (currentZone.maxX - currentZone.minX);
-                positions[idx + 2] = currentZone.minZ + Math.random() * (currentZone.maxZ - currentZone.minZ);
-                positions[idx + 1] = 8 + Math.random() * 4; // Sky height
+                    // Respawn from sky within zone
+                    positions[idx] = currentZone.minX + Math.random() * (currentZone.maxX - currentZone.minX);
+                    positions[idx + 2] = currentZone.minZ + Math.random() * (currentZone.maxZ - currentZone.minZ);
+                    positions[idx + 1] = 8 + Math.random() * 4; // Sky height
 
-                velocities[idx] = 0;
-                velocities[idx + 1] = -1; // Initial drop speed
-                velocities[idx + 2] = 0;
+                    velocities[idx] = 0;
+                    velocities[idx + 1] = -1; // Initial drop speed
+                    velocities[idx + 2] = 0;
+                }
             }
 
             // --- OPTIMIZATION STARTS HERE ---
             // Only perform heavy collision checks (House/Tree) every 3rd frame per leaf
             // We use (i % 3) to distribute the load evenly across frames
-            const frameIndex = Math.floor(now * 60); // approximate frame count
             if (i % 3 === frameIndex % 3) {
                 // House and Tree Collision Detection
                 const scene = SCENES[currentStage - 1];
