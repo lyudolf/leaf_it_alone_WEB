@@ -149,7 +149,7 @@ function DynamicGate({ x, stage, rotation, minZ, maxZ, FENCE_MODULE_LENGTH, PLAC
     if (!isClosed) return null;
 
     const fences = [];
-    for (let z = minZ + PLACEMENT_STEP; z < maxZ; z += PLACEMENT_STEP) {
+    for (let z = minZ; z <= maxZ + 0.1; z += PLACEMENT_STEP) { // Fix: Fill gaps
         const isCenter = z > -2.5 && z < 2.5;
         if (isCenter) {
             fences.push(
@@ -181,12 +181,12 @@ export function FenceEnclosure() {
     }
 
     // 3. WEST WALL (X = -15) - Start
-    for (let z = minZ + PLACEMENT_STEP; z < maxZ; z += PLACEMENT_STEP) {
+    for (let z = minZ; z <= maxZ + 0.1; z += PLACEMENT_STEP) { // +0.1 for float tolerance
         fences.push(<FenceModule key={`W-${z}`} position={[minX, 0, z]} rotation={-Math.PI / 2} />);
     }
 
     // 4. EAST WALL (X = 135) - End (Stage 5 End)
-    for (let z = minZ + PLACEMENT_STEP; z < maxZ; z += PLACEMENT_STEP) {
+    for (let z = minZ; z <= maxZ + 0.1; z += PLACEMENT_STEP) {
         fences.push(<FenceModule key={`E-${z}`} position={[maxX, 0, z]} rotation={Math.PI / 2} />);
     }
 
@@ -205,7 +205,7 @@ export function FenceEnclosure() {
             {gatePositions.map(gate => {
                 const wallParts = [];
 
-                for (let z = minZ + PLACEMENT_STEP; z < maxZ; z += PLACEMENT_STEP) {
+                for (let z = minZ; z <= maxZ + 0.1; z += PLACEMENT_STEP) { // Fix: Fill gaps
                     const isCenter = z > -2.5 && z < 2.5;
                     if (!isCenter) {
                         wallParts.push(<FenceModule key={`div-${gate.x}-${z}`} position={[gate.x, 0, z]} rotation={Math.PI / 2} />);

@@ -251,25 +251,6 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             positions[idx + 1] += vy * dt;
             positions[idx + 2] += vz * dt;
 
-            // Zone Containment (Respawn if out of bounds + 0.25 margin)
-            // OPTIMIZATION: Check only once per 5 seconds (approx 300 frames) per leaf
-            if (i % 300 === frameIndex % 300) {
-                const MARGIN = 0.25;
-                if (positions[idx] < currentZone.minX - MARGIN ||
-                    positions[idx] > currentZone.maxX + MARGIN ||
-                    positions[idx + 2] < currentZone.minZ - MARGIN ||
-                    positions[idx + 2] > currentZone.maxZ + MARGIN) {
-
-                    // Respawn from sky within zone
-                    positions[idx] = currentZone.minX + Math.random() * (currentZone.maxX - currentZone.minX);
-                    positions[idx + 2] = currentZone.minZ + Math.random() * (currentZone.maxZ - currentZone.minZ);
-                    positions[idx + 1] = 8 + Math.random() * 4; // Sky height
-
-                    velocities[idx] = 0;
-                    velocities[idx + 1] = -1; // Initial drop speed
-                    velocities[idx + 2] = 0;
-                }
-            }
 
             // --- OPTIMIZATION STARTS HERE ---
             // Only perform heavy collision checks (House/Tree) every 3rd frame per leaf
@@ -336,14 +317,102 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
                 }
             } // End of staggered check
 
+            // --- OPTIMIZATION ENDS HERE ---
+
+            // FENCE COLLISION (Global Boundaries)
+            const BOUNCE = -0.5;
+
+            // CEILING COLLISION (Height Limit 20m)
+            if (positions[idx + 1] > 20.0) {
+                positions[idx + 1] = 20.0;
+                if (velocities[idx + 1] > 0) velocities[idx + 1] *= BOUNCE;
+            }
+
+            // WALL COLLISION (Infinite Height)
+            // North Wall (Z = 12)
+            if (positions[idx + 2] > 12) {
+                positions[idx + 2] = 12;
+                velocities[idx + 2] *= BOUNCE;
+            }
+            // South Wall (Z = -12)
+            else if (positions[idx + 2] < -12) {
+                positions[idx + 2] = -12;
+                velocities[idx + 2] *= BOUNCE;
+            }
+
+            // West Wall (X = -15) - Start of Map
+            if (positions[idx] < -15) {
+                positions[idx] = -15;
+                velocities[idx] *= BOUNCE;
+            }
+            // East Wall (X = 135) - End of Map
+            else if (positions[idx] > 135) {
+                positions[idx] = 135;
+                velocities[idx] *= BOUNCE;
+            }
+
+            // DIVIDER WALLS (Between Stages) - CCD Line Crossing Detection
+            // Locations: X = 15, 45, 75, 105
+            // Leaves are ALWAYS blocked - gates are for player only
+            // Uses CCD to detect if leaf crossed the divider line in this frame
+
+            const currX = positions[idx];
+            const prevX = currX - velocities[idx] * dt; // Position before physics update
+
+            // Stage 2 divider (X = 15)
+            if ((prevX > 15 && currX <= 15) || (prevX < 15 && currX >= 15)) {
+                if (prevX > 15) {
+                    positions[idx] = 15.2;
+                } else {
+                    positions[idx] = 14.8;
+                }
+                velocities[idx] *= BOUNCE;
+            }
+
+            // Stage 3 divider (X = 45)
+            if ((prevX > 45 && currX <= 45) || (prevX < 45 && currX >= 45)) {
+                if (prevX > 45) {
+                    positions[idx] = 45.2;
+                } else {
+                    positions[idx] = 44.8;
+                }
+                velocities[idx] *= BOUNCE;
+            }
+
+            // Stage 4 divider (X = 75)
+            if ((prevX > 75 && currX <= 75) || (prevX < 75 && currX >= 75)) {
+                if (prevX > 75) {
+                    positions[idx] = 75.2;
+                } else {
+                    positions[idx] = 74.8;
+                }
+                velocities[idx] *= BOUNCE;
+            }
+
+            // Stage 5 divider (X = 105)
+            if ((prevX > 105 && currX <= 105) || (prevX < 105 && currX >= 105)) {
+                if (prevX > 105) {
+                    positions[idx] = 105.2;
+                } else {
+                    positions[idx] = 104.8;
+                }
+                velocities[idx] *= BOUNCE;
+            }
+
             // Ground Collision
             if (positions[idx + 1] <= GROUND_Y) {
                 positions[idx + 1] = GROUND_Y;
                 vy = 0;
                 vx *= 0.8;
                 vz *= 0.8;
-                rotations[idx] *= 0.9;
-                rotations[idx + 2] *= 0.9;
+
+                // Flatten leaves faster - prevent vertical burial
+                rotations[idx] *= 0.5;   // X rotation decay faster
+                rotations[idx + 2] *= 0.5; // Z rotation decay faster
+
+                // Clamp extreme X/Z rotations (prevent vertical leaves)
+                if (Math.abs(rotations[idx]) > 0.5) rotations[idx] *= 0.5;
+                if (Math.abs(rotations[idx + 2]) > 0.5) rotations[idx + 2] *= 0.5;
 
                 // Snap to zero if very slow (enables sleep next frame)
                 if (Math.abs(vx) < 0.05) vx = 0;

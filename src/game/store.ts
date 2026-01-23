@@ -120,14 +120,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     totalLeaves: 10000,
     totalCollected: 0,
     currentTool: 'HAND',
-    unlockedTools: ['HAND'],
+    unlockedTools: ['HAND'], // Production: Start with HAND only
 
     isInventoryOpen: false,
     isShopOpen: false,
     isAirVentActive: false,
     playerPushEvent: null,
-    currentStage: 1, // Start at Stage 1
-    totalLeavesInStage: SCENES[0].goal,
+    currentStage: 1, // Production: Start at Stage 1
+    totalLeavesInStage: SCENES[0].goal, // Stage 1 goal
     bagsDeliveredToDrain: 0,
     bagsRequiredToClear: 0,
     objectiveType: 'LEAVES',

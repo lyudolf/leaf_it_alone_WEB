@@ -80,7 +80,7 @@ export const SCENES: SceneConfig[] = [
             { position: [108, 0, 9], scale: 0.5, rotation: [0, Math.PI, 0] }, // Top Left - Moved away from house
             { position: [132, 0, 9], scale: 0.5, rotation: [0, Math.PI, 0] }  // Top Right - Smaller & Rotated
         ],
-        house: { position: [108, 0, -8], scale: 3.5 },
+        house: { position: [110, 0, -8], scale: 3.5 },
         trees: [], // No trees in Stage 5
         vents: [{ position: [115, 0, 0], radius: 5, strength: 20 }],
         drains: [{ position: [120, 0, 0], radius: 1.0 }] // Center of Stage 5
