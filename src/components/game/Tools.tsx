@@ -15,49 +15,60 @@ interface ToolsProps {
 // Models must be preloaded or loaded in parent to prevent Suspense on switch
 // Models must be preloaded or loaded in parent to prevent Suspense on switch
 function HandModel({ active, side = 'right', scene }: { active: boolean; side?: 'left' | 'right'; scene: THREE.Group }) {
-    const { camera, clock } = useThree();
+    const { camera } = useThree();
     const group = useRef<THREE.Group>(null);
     const clone = useMemo(() => scene.clone(), [scene]);
+    const activeDuration = useRef(0);
 
-    // ... animation logic remains same ...
     useFrame((state, delta) => {
         if (!group.current) return;
 
-        // HUD Position relative to camera
+        // 1. Pulsing Animation (0.2s loop)
+        if (active) {
+            activeDuration.current += delta;
+        } else {
+            activeDuration.current = 0;
+        }
+
+        const period = 0.2;
+        const progress = (activeDuration.current % period) / period;
+        const pulse = Math.sin(progress * Math.PI); // 0 -> 1 -> 0
+        const reachAmt = active ? (0.3 * pulse) : 0.0;
+
+        // 2. Position (Preserve exact legacy logic)
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
 
-        // Base offset
         const sideMultiplier = side === 'right' ? 1 : -1;
         const offset = new THREE.Vector3()
-            .add(forward.clone().multiplyScalar(0.5)) // Distance from camera
-            .add(right.clone().multiplyScalar(0.3 * sideMultiplier))   // Right/Left
-            .add(up.clone().multiplyScalar(-0.3));    // Down
+            .add(forward.clone().multiplyScalar(0.5)) // Distance
+            .add(right.clone().multiplyScalar(0.3 * sideMultiplier)) // Side
+            .add(up.clone().multiplyScalar(-0.3)); // Down
 
-        // Reach animation
-        const reach = active ? 0.3 : 0.0;
-        const reachOffset = forward.clone().multiplyScalar(reach);
+        const reachVec = forward.clone().multiplyScalar(reachAmt);
 
         // Bobbing
         const time = state.clock.elapsedTime;
         const bobPhase = side === 'right' ? 0 : Math.PI;
         const bob = up.clone().multiplyScalar(Math.sin(time * 2 + bobPhase) * 0.01);
 
-        const target = camera.position.clone().add(offset).add(reachOffset).add(bob);
+        const target = camera.position.clone().add(offset).add(reachVec).add(bob);
 
-        group.current.position.lerp(target, delta * 15);
+        group.current.position.lerp(target, delta * 20); // Faster lerp for 0.2s speed
         group.current.quaternion.copy(camera.quaternion);
+
+        // Dynamic tilt based on pulse
         if (active) {
-            group.current.rotateX(-0.2);
-            group.current.rotateZ(-0.2 * sideMultiplier);
+            group.current.rotateX(-0.2 * pulse);
+            group.current.rotateZ(-0.2 * sideMultiplier * pulse);
         }
     });
 
     const scale = side === 'right' ? [0.3, 0.3, 0.3] : [-0.3, 0.3, 0.3];
     const rotation: [number, number, number] = side === 'right'
         ? [250, 80, 0]
-        : [250, 80, 0];
+        : [250, 90, 0];
 
     return (
         <group ref={group}>
@@ -223,200 +234,161 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
     const groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
 
     useEffect(() => {
-        const handleDown = () => {
-            setIsMouseDown(true);
-            if (currentTool === 'HAND' || currentTool === 'RAKE') {
-                setClicked(true);
-            }
-        };
-        const handleUp = () => setIsMouseDown(false);
-
         const handleMouseDown = (e: MouseEvent) => {
-            setIsMouseDown(true); // Keep this for RAKE/BLOWER visual feedback
-            if (currentTool === 'RAKE') {
-                setClicked(true); // Keep this for RAKE
-            }
+            if (e.button !== 0 && e.button !== 2) return;
 
-            // Throw Bag (Right Click)
-            if (e.button === 2 && currentTool === 'HAND' && carriedBagId) {
-                // Calc throw direction
-                const throwDir = new THREE.Vector3(0, 0, -1);
-                throwDir.applyQuaternion(camera.quaternion);
-                throwDir.normalize();
-
-                // Add some upward force
-                throwDir.multiplyScalar(75); // Forward force (3x boost)
-                throwDir.y += 24; // Upward arc (3x boost)
-
-                // Trigger impulse and drop
-                useGameStore.getState().triggerBagImpulse(carriedBagId, [throwDir.x, throwDir.y, throwDir.z]);
-                setCarriedBag(null);
+            // Right Click: Throw Bag
+            if (e.button === 2) {
+                if (currentTool === 'HAND' && carriedBagId) {
+                    const throwDir = new THREE.Vector3(0, 0, -1);
+                    throwDir.applyQuaternion(camera.quaternion);
+                    throwDir.normalize();
+                    throwDir.multiplyScalar(75);
+                    throwDir.y += 24;
+                    useGameStore.getState().triggerBagImpulse(carriedBagId, [throwDir.x, throwDir.y, throwDir.z]);
+                    setCarriedBag(null);
+                }
                 return;
             }
 
-            if (e.button !== 0) return; // Ignore other buttons for standard interaction
+            // Left Click
+            setIsMouseDown(true);
 
-            // HAND Interactions
+            // Force immediate execution in next frame loop
+            // By setting lastTickTime to 0, the check (now - lastTickTime > 500) will pass immediately
+            // But we need to handle "first click" logic vs "holding" logic if needed.
+            // Actually, setting it to -5000 ensures it runs immediately.
+            lastTickTime.current = 0;
+
+            // For RAKE visualization
+            if (currentTool === 'RAKE') {
+                setClicked(true);
+            }
+
+            // HAND Bag Pickup Check (Priority over leaves)
             if (currentTool === 'HAND') {
-                // 1. Check for Bags (Carrying)
                 raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                // Intersect objects in scene. Optimize by filtering?
-                // For MVP, intersecting scene.children is risky (too many leaves).
-                // Better: find objects with name starting with 'bag-'
-                const candidates = scene.children.filter(obj => obj.name.startsWith('bag-') || (obj.children[0] && obj.children[0].name.startsWith('bag-')));
-                // Note: R3F groups might wrap the mesh.
-
-                // Let's assume naive raycast against specific layer or iterate bags from store
-
-                // actually, we can just look for names in the intersect result of the whole scene
-                // but limit distance.
                 const intersects = raycaster.intersectObjects(scene.children, true);
-
-                // Find first valid hit
                 const hit = intersects.find(i => i.distance < 5 && i.object.name.startsWith('bag-'));
 
                 if (hit) {
                     const bagId = hit.object.name.replace('bag-', '');
                     if (!carriedBagId) {
-                        setCarriedBag(bagId); // Pick up
+                        setCarriedBag(bagId);
+                        setIsMouseDown(false); // Don't continue to leaf logic
+                        return;
                     }
-                    return; // Handled bag, don't pick leaf
                 }
 
-                // If holding a bag, drop it
                 if (carriedBagId) {
                     setCarriedBag(null);
+                    setIsMouseDown(false); // Drop action done
                     return;
                 }
-
-                // 2. Pick Leaves (if not carrying)
-                // Existing logic...
-                if (!leafApi) return;
-
-                const { positions } = leafApi;
-                const p = new THREE.Vector3();
-                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                const ray = raycaster.ray;
-
-                let closestIdx = -1;
-                let closestDist = 4.5; // Increased reach for better UX
-
-                // Optimization: Only check nearby?
-                // Given 10k leaves, linear scan is expensive every click?
-                // Previous logic did linear scan. We'll stick to it or rely on spatial grid if available.
-                // Reusing the linear scan for now.
-
-                for (let i = 0; i < leafApi.count; i++) {
-                    p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                    // Check distance to player/camera first to prune
-                    if (p.distanceTo(camera.position) > 4) continue;
-
-                    // Ray distance
-                    // Closest point on ray
-                    const pointOnRay = new THREE.Vector3();
-                    ray.closestPointToPoint(p, pointOnRay);
-                    const dist = p.distanceTo(pointOnRay);
-
-                    if (dist < 0.5 && p.distanceTo(camera.position) < closestDist) {
-                        closestDist = p.distanceTo(camera.position);
-                        closestIdx = i;
-                    }
-                }
-
-                if (closestIdx !== -1) {
-                    // Normal removal logic for ALL levels (including Max 100)
-                    // This ensures we only count ACTUAL leaves picked, preventing the "+100 score per click" exploit.
-                    const targetIndices = [closestIdx];
-                    if (pickAmount > 1) {
-                        const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
-
-                        // For max level (100), increase radius slightly to ensure we catch enough leaves if available
-                        const pickupRadius = pickAmount >= 100 ? 2.5 : 1.0;
-
-                        for (let i = 0; i < leafApi.count; i++) {
-                            if (i === closestIdx) continue;
-                            if (targetIndices.length >= pickAmount) break;
-                            p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-                            if (p.distanceTo(centerP) < pickupRadius) {
-                                targetIndices.push(i);
-                            }
-                        }
-                    }
-
-                    targetIndices.forEach(idx => {
-                        positions[idx * 3 + 1] = -1000;
-                        const dummy = new THREE.Object3D();
-                        dummy.position.set(0, -1000, 0);
-                        dummy.updateMatrix();
-                        leafRef.current?.setMatrixAt(idx, dummy.matrix);
-                    });
-                    if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
-
-                    // Add leaves and check for bag creation threshold
-                    addLeaf(targetIndices.length);
-
-                    const currentScore = useGameStore.getState().score;
-                    if (currentScore >= 100) {
-                        // Spawn Bag at player's location (slightly forward)
-                        const spawnPos = new THREE.Vector3(0, 0, -1.0);
-                        spawnPos.applyQuaternion(camera.quaternion);
-                        spawnPos.add(camera.position);
-                        spawnPos.y = Math.max(0.5, spawnPos.y);
-
-                        const bagId = Math.random().toString(36).substr(2, 9);
-                        createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
-                        setCarriedBag(bagId); // Auto-carry
-
-                        // Trigger Tutorial
-                        useGameStore.getState().triggerBagTutorial();
-                    }
-                }
             }
         };
 
-        const handleMouseUp = (e: MouseEvent) => {
+        const handleMouseUp = () => {
             setIsMouseDown(false);
-            setClicked(false); // Reset clicked for RAKE
-            if (currentTool === 'HAND' && carriedBagId) {
-                setCarriedBag(null); // Drop on release
-            }
+            setClicked(false);
         };
 
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.code === 'Space' && currentTool === 'HAND' && carriedBagId) {
-                // Throw Bag
-                // Calc throw direction
-                const throwDir = new THREE.Vector3(0, 0, -1);
-                throwDir.applyQuaternion(camera.quaternion);
-                throwDir.normalize();
-
-                // Add some upward force
-                throwDir.multiplyScalar(8); // Forward force
-                throwDir.y += 3; // Upward arc
-
-                // Trigger impulse and drop
-                useGameStore.getState().triggerBagImpulse(carriedBagId, [throwDir.x, throwDir.y, throwDir.z]);
-                setCarriedBag(null);
-            }
-        };
-
-        const handleContextMenu = (e: MouseEvent) => {
-            e.preventDefault(); // Block browser menu
-        };
+        const handleContextMenu = (e: MouseEvent) => e.preventDefault();
 
         window.addEventListener('mousedown', handleMouseDown);
         window.addEventListener('mouseup', handleMouseUp);
         window.addEventListener('contextmenu', handleContextMenu);
-
-        // Remove spacebar listener
-        // window.addEventListener('keydown', handleKeyDown);
 
         return () => {
             window.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mouseup', handleMouseUp);
             window.removeEventListener('contextmenu', handleContextMenu);
         };
-    }, [currentTool, leafApi, camera, scene, pickAmount, carriedBagId, addLeaf, createBag, setCarriedBag, leafRef]);
+    }, [currentTool, camera, scene, carriedBagId, setCarriedBag]);
+
+    // Unified interaction handler for Tools
+    const handleInteraction = (currentTick: number) => {
+        // HAND Interactions
+        if (currentTool === 'HAND') {
+            // 1. Check for Bags (Carrying) - Only on fresh clicks, not continuous
+            // This is handled in handleMouseDown separately.
+
+            // 2. Pick Leaves
+            if (!leafApi) return;
+
+            const { positions } = leafApi;
+            const p = new THREE.Vector3();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const ray = raycaster.ray;
+
+            let closestIdx = -1;
+            let closestDist = 4.5; // Reach
+
+            for (let i = 0; i < leafApi.count; i++) {
+                p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+                if (p.distanceTo(camera.position) > 5) continue; // Optimization
+
+                // Closest point on ray
+                const pointOnRay = new THREE.Vector3();
+                ray.closestPointToPoint(p, pointOnRay);
+                const period = 0.2;
+                const dist = p.distanceTo(pointOnRay);
+
+                if (dist < 0.8 && p.distanceTo(camera.position) < closestDist) {
+                    closestDist = p.distanceTo(camera.position);
+                    closestIdx = i;
+                }
+            }
+
+            if (closestIdx !== -1) {
+                const targetIndices = [closestIdx];
+                if (pickAmount > 1) {
+                    const centerP = new THREE.Vector3(positions[closestIdx * 3], positions[closestIdx * 3 + 1], positions[closestIdx * 3 + 2]);
+                    const pickupRadius = pickAmount >= 100 ? 2.5 : 1.0;
+
+                    for (let i = 0; i < leafApi.count; i++) {
+                        if (i === closestIdx) continue;
+                        if (targetIndices.length >= pickAmount) break;
+                        p.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+                        if (p.distanceTo(centerP) < pickupRadius) {
+                            targetIndices.push(i);
+                        }
+                    }
+                }
+
+                targetIndices.forEach(idx => {
+                    positions[idx * 3 + 1] = -1000;
+                    const dummy = new THREE.Object3D();
+                    dummy.position.set(0, -1000, 0);
+                    dummy.updateMatrix();
+                    leafRef.current?.setMatrixAt(idx, dummy.matrix);
+                });
+                if (leafRef.current) leafRef.current.instanceMatrix.needsUpdate = true;
+
+                addLeaf(targetIndices.length);
+
+                const currentScore = useGameStore.getState().score;
+                if (currentScore >= 100) {
+                    const spawnPos = new THREE.Vector3(0, 0, -1.0);
+                    spawnPos.applyQuaternion(camera.quaternion);
+                    spawnPos.add(camera.position);
+                    spawnPos.y = Math.max(0.5, spawnPos.y);
+
+                    const bagId = Math.random().toString(36).substr(2, 9);
+                    createBag([spawnPos.x, spawnPos.y, spawnPos.z], bagId);
+                    setCarriedBag(bagId);
+                    useGameStore.getState().triggerBagTutorial();
+                }
+            }
+        }
+
+        if (currentTool === 'RAKE') {
+            const rakeConfig = getRakeConfig(upgrades.rakeRange) as any;
+            applyRakeForces(leafApi, toolPosition.current, camera, rakeConfig);
+            setClicked(true); // Trigger visual animation
+            setTimeout(() => setClicked(false), 200); // Quick reset
+        }
+    };
 
     useFrame((state, delta) => {
         // Raycast to Ground Plane for tool position
@@ -425,10 +397,8 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
         const hit = raycaster.ray.intersectPlane(groundPlane, hitPoint);
 
         if (hit) {
-            // Clamp reach to prevent infinite interaction
             const dist = hitPoint.distanceTo(camera.position);
             const MAX_REACH = 6.0;
-
             if (dist > MAX_REACH) {
                 const dir = hitPoint.sub(camera.position).normalize();
                 toolPosition.current.copy(camera.position).add(dir.multiplyScalar(MAX_REACH));
@@ -440,39 +410,36 @@ export function Tools({ leafApi, leafRef }: ToolsProps) {
             toolPosition.current.copy(camera.position).add(forward.multiplyScalar(4));
         }
 
-        // HAND tool logic is now primarily in the useEffect for mousedown
-        // The old HAND logic for picking up a single leaf is replaced by the new useEffect logic.
-        // The `clicked` state is no longer used for HAND.
+        const now = state.clock.elapsedTime * 1000;
 
-        if (currentTool === 'RAKE' && clicked) {
-            const rakeConfig = getRakeConfig(upgrades.rakeRange) as any;
-            applyRakeForces(leafApi, toolPosition.current, camera, rakeConfig);
-            setClicked(false);
-            return;
-        }
+        // Continuous Interaction Logic
+        if (isMouseDown) {
+            if (currentTool === 'HAND' || currentTool === 'RAKE') {
+                // 200ms interval for HAND/RAKE
+                if (now - lastTickTime.current > 200) {
+                    handleInteraction(now);
+                    lastTickTime.current = now;
+                }
+            }
 
-        if (currentTool === 'BLOWER' && isMouseDown) {
-            const now = state.clock.elapsedTime * 1000;
-            const blowerConfig = getBlowerConfig(upgrades.blowerRange) as any;
+            if (currentTool === 'BLOWER') {
+                const blowerConfig = getBlowerConfig(upgrades.blowerRange) as any;
+                if (now - lastTickTime.current > blowerConfig.tickInterval) { // Faster interval for blower
+                    lastTickTime.current = now;
+                    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    forward.y = 0; forward.normalize();
+                    const blowerPos = camera.position.clone().add(forward.multiplyScalar(blowerConfig.distance));
+                    applyBlowerForces(leafApi, blowerPos, camera, blowerConfig);
+                }
+            }
 
-            if (now - lastTickTime.current < blowerConfig.tickInterval) return;
-            lastTickTime.current = now;
-
-            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-            forward.y = 0; forward.normalize();
-            const blowerPos = camera.position.clone().add(forward.multiplyScalar(blowerConfig.distance));
-
-            applyBlowerForces(leafApi, blowerPos, camera, blowerConfig);
-        };
-
-        if (currentTool === 'VACUUM' && isMouseDown) {
-            const now = state.clock.elapsedTime * 1000;
-            const config = TOOL_CONFIG.VACUUM;
-
-            if (now - lastTickTime.current < config.tickInterval) return;
-            lastTickTime.current = now;
-
-            applyVacuumCollector(leafApi, leafRef, camera, config, addLeaf, createBag);
+            if (currentTool === 'VACUUM') {
+                const config = TOOL_CONFIG.VACUUM;
+                if (now - lastTickTime.current > config.tickInterval) {
+                    lastTickTime.current = now;
+                    applyVacuumCollector(leafApi, leafRef, camera, config, addLeaf, createBag);
+                }
+            }
         }
     });
 

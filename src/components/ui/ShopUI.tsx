@@ -28,10 +28,10 @@ export function ShopUI() {
     // Configuration for Pick Amount
     const getPickUpgrade = () => {
         if (pickAmount === 1) return { cost: 70, next: 3, desc: "손 줍기 (1 -> 3)" };
-        if (pickAmount === 3) return { cost: 420, next: 5, desc: "손 줍기 (3 -> 5)" };
-        if (pickAmount === 5) return { cost: 700, next: 10, desc: "손 줍기 (5 -> 10)" };
-        if (pickAmount === 10) return { cost: 2100, next: 50, desc: "손 줍기 (10 -> 50)" };
-        if (pickAmount === 50) return { cost: 5600, next: 100, desc: "원클릭 봉투화 (50 -> 100)" };
+        if (pickAmount === 3) return { cost: 230, next: 5, desc: "손 줍기 (3 -> 5)" };
+        if (pickAmount === 5) return { cost: 500, next: 10, desc: "손 줍기 (5 -> 10)" };
+        if (pickAmount === 10) return { cost: 1800, next: 50, desc: "손 줍기 (10 -> 50)" };
+        if (pickAmount === 50) return { cost: 4200, next: 100, desc: "원클릭 봉투화 (50 -> 100)" };
         return { cost: 0, next: 100, desc: "한번 클릭 시 100개의 낙엽을 줍습니다." };
     };
 

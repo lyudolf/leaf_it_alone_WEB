@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { Physics, usePlane } from '@react-three/cannon';
+import { Physics, usePlane, useBox } from '@react-three/cannon';
 import { Suspense, useState, useEffect } from 'react';
 import { LeafManager } from './LeafManager';
 import { Tools } from './Tools';
@@ -57,15 +57,28 @@ function Ground() {
         material: { friction: 0.1 }
     }));
 
-    // Start loading texture
-    const texture = useTexture("/textures/grass.png");
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(width / 2, depth / 2); // Tiling based on size
-
     return (
         <mesh ref={ref as any} rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[centerX, 0, centerZ]}>
             <planeGeometry args={[width, depth]} />
-            <meshStandardMaterial map={texture} color="#88aa88" roughness={0.8} />
+            <meshStandardMaterial
+                color="#8f6a40"
+                roughness={0.9}
+                metalness={0}
+            />
+        </mesh>
+    );
+}
+
+function InvisibleWall({ position, args }: { position: [number, number, number], args: [number, number, number] }) {
+    useBox(() => ({
+        type: 'Static',
+        position,
+        args
+    }));
+    return (
+        <mesh position={position} visible={false}>
+            <boxGeometry args={args} />
+            <meshBasicMaterial color="red" wireframe />
         </mesh>
     );
 }
@@ -124,6 +137,12 @@ export function GameScene() {
                                     scale={sceneConfig.house.scale}
                                     extraHeight={currentStage === 5 ? 20 : 0}
                                 />
+                                {/* Invisible Wall behind house (Prevent Player/Leaves going back) */}
+                                <InvisibleWall
+                                    position={[sceneConfig.house.position[0], 10, sceneConfig.house.position[2] - 3.5]}
+                                    args={[15, 20, 1]}
+                                />
+
                                 {/* Hip_SH Model next to House (Relative Offset: x+4.5, consistent across stages) */}
                                 <HipSH
                                     key={`hipsh-${currentStage}`}

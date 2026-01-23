@@ -34,7 +34,7 @@ export function Player() {
     const [ref, api] = useSphere(() => ({
         mass: 0, // Start floating
         type: 'Dynamic',
-        position: [0, 1, 0], // Start slightly higher safely
+        position: getSpawnPoint(useGameStore.getState().currentStage), // Start at current stage spawn
         fixedRotation: true,
         args: [0.5],
         material: { friction: 0, restitution: 0 },
@@ -77,6 +77,23 @@ export function Player() {
     const playerPushEvent = useGameStore(s => s.playerPushEvent);
     const canJump = useRef(true); // Track if player is on ground
 
+    // Trampoline bounce handler
+    useEffect(() => {
+        const handleTrampolineBounce = (e: Event) => {
+            const customEvent = e as CustomEvent<{ strength: number }>;
+            const bounceStrength = customEvent.detail.strength;
+
+            // Apply upward impulse
+            pushVelocity.current.y += bounceStrength;
+            console.log('[Player] Trampoline bounce! Strength:', bounceStrength);
+        };
+
+        window.addEventListener('trampoline-bounce', handleTrampolineBounce);
+        return () => {
+            window.removeEventListener('trampoline-bounce', handleTrampolineBounce);
+        };
+    }, []);
+
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.code === 'Digit1') setTool('HAND');
@@ -89,6 +106,10 @@ export function Player() {
             // if (e.code === 'Digit4') setTool('VACUUM'); // Testing mode: always allowed
 
             if (e.code === 'KeyE') {
+                if (useGameStore.getState().isEndingOpen) {
+                    useGameStore.getState().closeEnding();
+                    return;
+                }
                 if (useGameStore.getState().isIntroOpen) {
                     useGameStore.getState().closeIntro();
                     return;

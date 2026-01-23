@@ -105,8 +105,22 @@ export function TomatoSH({ position }: { position: [number, number, number] }) {
                 break;
 
             case 'CARRYING_BAG':
-                const dirToBin = new THREE.Vector3().subVectors(binPos, myPos).normalize();
-                const distToBin = myPos.distanceTo(binPos);
+                // Find nearest bin
+                const bins = SCENES[Math.min(currentStage - 1, SCENES.length - 1)].trashBins;
+                let nearestBinPos = new THREE.Vector3(...bins[0].position);
+                let minBinDist = Infinity;
+
+                for (const bin of bins) {
+                    const bPos = new THREE.Vector3(...bin.position);
+                    const d = myPos.distanceTo(bPos);
+                    if (d < minBinDist) {
+                        minBinDist = d;
+                        nearestBinPos = bPos;
+                    }
+                }
+
+                const dirToBin = new THREE.Vector3().subVectors(nearestBinPos, myPos).normalize();
+                const distToBin = myPos.distanceTo(nearestBinPos);
 
                 api.velocity.set(dirToBin.x * 5, -1, dirToBin.z * 5);
                 api.rotation.set(0, Math.atan2(dirToBin.x, dirToBin.z), 0);

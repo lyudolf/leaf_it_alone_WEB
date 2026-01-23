@@ -234,20 +234,20 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             positions[idx + 1] += vy * dt;
             positions[idx + 2] += vz * dt;
 
-            // Zone Containment
-            if (positions[idx] < currentZone.minX) {
-                positions[idx] = currentZone.minX;
-                velocities[idx] = 0;
-            } else if (positions[idx] > currentZone.maxX) {
-                positions[idx] = currentZone.maxX;
-                velocities[idx] = 0;
-            }
+            // Zone Containment (Respawn if out of bounds + 0.25 margin)
+            const MARGIN = 0.25;
+            if (positions[idx] < currentZone.minX - MARGIN ||
+                positions[idx] > currentZone.maxX + MARGIN ||
+                positions[idx + 2] < currentZone.minZ - MARGIN ||
+                positions[idx + 2] > currentZone.maxZ + MARGIN) {
 
-            if (positions[idx + 2] < currentZone.minZ) {
-                positions[idx + 2] = currentZone.minZ;
-                velocities[idx + 2] = 0;
-            } else if (positions[idx + 2] > currentZone.maxZ) {
-                positions[idx + 2] = currentZone.maxZ;
+                // Respawn from sky within zone
+                positions[idx] = currentZone.minX + Math.random() * (currentZone.maxX - currentZone.minX);
+                positions[idx + 2] = currentZone.minZ + Math.random() * (currentZone.maxZ - currentZone.minZ);
+                positions[idx + 1] = 8 + Math.random() * 4; // Sky height
+
+                velocities[idx] = 0;
+                velocities[idx + 1] = -1; // Initial drop speed
                 velocities[idx + 2] = 0;
             }
 
@@ -268,7 +268,7 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
                     // Check collision with biased box
                     if (Math.abs(positions[idx] - hPos[0]) < halfSize &&
                         Math.abs(positions[idx + 2] - centerZ) < halfZ &&
-                        positions[idx + 1] < 2.0 * hScale) { // Below house height
+                        positions[idx + 1] < 20.0) { // Extended height blockage (20m) to prevent flying over house
 
                         // Push leaf out of house (using biased center)
                         const dx = positions[idx] - hPos[0];

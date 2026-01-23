@@ -3,6 +3,7 @@
 import { useGameStore, ToolType } from '@/game/store';
 import { InventoryUI } from '@/components/ui/InventoryUI';
 import { ShopUI } from '@/components/ui/ShopUI';
+import { EndingPanel } from '@/components/ui/EndingPanel';
 
 const TOOL_ICONS: Record<ToolType, string> = {
     HAND: '✋',
@@ -386,6 +387,7 @@ export function UIOverlay() {
     const isStageTutorialOpen = useGameStore(s => s.isStageTutorialOpen);
     const isBagTutorialOpen = useGameStore(s => s.isBagTutorialOpen);
     const interactionPrompt = useGameStore(s => s.interactionPrompt);
+    const isEndingOpen = useGameStore(s => s.isEndingOpen);
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6">
@@ -436,6 +438,12 @@ export function UIOverlay() {
 
             {/* Hotbar */}
             <Hotbar />
+            {isEndingOpen && <EndingPanel />}
+
+            {/* Watermark */}
+            <div className="absolute bottom-2 right-4 text-white/30 text-xs font-bold pointer-events-none select-none">
+                made by 유희수
+            </div>
         </div>
     );
 }

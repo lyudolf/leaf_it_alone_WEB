@@ -34,6 +34,8 @@ interface GameState {
     interactionPrompt: string | null;
     stageCleared: boolean;
     toasts: { id: string; message: string }[];
+    isEndingOpen: boolean;
+    closeEnding: () => void;
     tornadoPosition: [number, number, number] | null; // Tornado position for Stage 5
     isVideoPlaying: boolean; // Ending video playback state
 
@@ -131,6 +133,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     objectiveType: 'LEAVES',
     interactionPrompt: null,
     stageCleared: false,
+    isEndingOpen: false,
+    closeEnding: () => set({ isEndingOpen: false }),
     toasts: [],
     tornadoPosition: null,
     isVideoPlaying: false,
@@ -170,10 +174,17 @@ export const useGameStore = create<GameState>((set, get) => ({
             const isLeavesTask = state.objectiveType === 'LEAVES';
             const cleared = isLeavesTask && newTotal >= state.totalLeavesInStage;
 
+            // Trigger Ending if Stage 5 cleared just now
+            let openEnding = false;
+            if (cleared && !state.stageCleared && state.currentStage === 5) {
+                openEnding = true;
+            }
+
             return {
                 score: newScore,
                 totalCollected: newTotal,
-                stageCleared: state.stageCleared || cleared
+                stageCleared: state.stageCleared || cleared,
+                isEndingOpen: state.isEndingOpen || openEnding
             };
         });
     },
