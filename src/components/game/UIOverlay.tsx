@@ -5,6 +5,7 @@ import { InventoryUI } from '@/components/ui/InventoryUI';
 import { ShopUI } from '@/components/ui/ShopUI';
 import { EndingPanel } from '@/components/ui/EndingPanel';
 import { GraphicsPanel } from '@/components/ui/GraphicsPanel';
+import { PerfMonitorUI } from '@/components/game/PerfMonitor';
 
 const TOOL_ICONS: Record<ToolType, string> = {
     HAND: '✋',
@@ -412,6 +413,7 @@ export function UIOverlay() {
             {isInventoryOpen && <InventoryUI />}
             {isShopOpen && <ShopUI />}
             <GraphicsPanel />
+            <PerfMonitorUI />
 
             {/* Help Panel (Top Right, slightly below HUD) */}
             {isHelpOpen && (

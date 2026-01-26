@@ -34,6 +34,7 @@ import { PotatoSH } from '@/components/environment/props/PotatoSH';
 import { CarrotSH } from '@/components/environment/props/CarrotSH';
 import { TomatoSH } from '@/components/environment/props/TomatoSH';
 import { GraphicsController } from '@/components/game/GraphicsController';
+import { PerfMonitor } from '@/components/game/PerfMonitor';
 
 
 import { ZONES } from '@/spec/zones';
@@ -119,6 +120,7 @@ export function GameScene() {
                     shadow-mapSize={[2048, 2048]}
                 />
                 <GraphicsController />
+                <PerfMonitor />
 
                 <Physics
                     gravity={[0, -9.81, 0]}

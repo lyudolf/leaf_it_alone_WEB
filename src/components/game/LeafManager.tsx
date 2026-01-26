@@ -9,7 +9,16 @@ import { ZONES } from '@/spec/zones';
 
 import { SCENES } from '@/spec/scenes';
 
-const LEAF_COUNT = 8000;
+// Stage-based leaf allocation (per-stage ranges)
+const STAGE_LEAF_CONFIG = [
+    { start: 0, end: 500 },    // S1 = 500
+    { start: 500, end: 1700 }, // S2 = 1200
+    { start: 1700, end: 4200 },// S3 = 2500
+    { start: 4200, end: 6200 },// S4 = 2000
+    { start: 6200, end: 8000 },// S5 = 1800
+];
+
+const LEAF_COUNT = 8000; // Max allocation
 const WORLD_SIZE = 200;
 
 // Custom Physics Parameters
@@ -132,32 +141,20 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             meshRef.current?.setMatrixAt(i, dummy.matrix);
         }
 
-        // Spawn leaves for current stage only (for testing)
-        if (currentStage === 1) {
-            const zone1 = ZONES.zone1;
-            for (let i = 0; i < 500; i++) {
-                spawnLeaf(i, zone1.minX + 2, zone1.maxX - 2, zone1.minZ + 2, zone1.maxZ - 2);
-            }
-        } else {
-            // If starting at a later stage, spawn only that stage's leaves
-            const zone = ZONES[`zone${currentStage}`];
-            if (zone) {
-                const config = [
-                    { start: 0, end: 500 },    // S1
-                    { start: 500, end: 1700 }, // S2
-                    { start: 1700, end: 4200 },// S3
-                    { start: 4200, end: 6200 },// S4
-                    { start: 6200, end: 8000 },// S5
-                ];
-                const { start, end } = config[currentStage - 1];
-                const margin = currentStage === 5 ? 0.5 : 2; // Smaller margin for stage 5 (closer to fences)
-                for (let i = start; i < end; i++) {
-                    spawnLeaf(i, zone.minX + margin, zone.maxX - margin, zone.minZ + margin, zone.maxZ - margin);
-                }
-            }
+        // Spawn leaves for current stage only
+        const stageConfig = STAGE_LEAF_CONFIG[currentStage - 1] || STAGE_LEAF_CONFIG[0];
+        const zone = ZONES[`zone${currentStage}`] || ZONES.zone1;
+        const margin = currentStage === 5 ? 0.5 : 2;
+
+        for (let i = stageConfig.start; i < stageConfig.end; i++) {
+            spawnLeaf(i, zone.minX + margin, zone.maxX - margin, zone.minZ + margin, zone.maxZ - margin);
         }
 
-        if (meshRef.current) meshRef.current.instanceMatrix.needsUpdate = true;
+        // OPTIMIZATION: Limit rendered instances to current stage's max
+        if (meshRef.current) {
+            meshRef.current.count = stageConfig.end;
+            meshRef.current.instanceMatrix.needsUpdate = true;
+        }
     }, []);
 
     // Sky Drop logic for new stages
@@ -166,16 +163,13 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
             const zone = ZONES[`zone${currentStage}`];
             if (!zone) return;
 
-            // Define spawn pool based on stage
-            const config = [
-                { start: 0, end: 500 },    // S1
-                { start: 500, end: 1700 }, // S2 (+1200)
-                { start: 1700, end: 4200 },// S3 (+2500)
-                { start: 4200, end: 6200 },// S4 (+2000)
-                { start: 6200, end: 8000 },// S5 (+1800)
-            ];
+            const stageConfig = STAGE_LEAF_CONFIG[currentStage - 1];
+            const { start, end } = stageConfig;
 
-            const { start, end } = config[currentStage - 1];
+            // OPTIMIZATION: Update mesh count to include all leaves up to current stage
+            if (meshRef.current) {
+                meshRef.current.count = end;
+            }
 
             // Sequential sky drops over 5 seconds
             let currentIdx = start;
@@ -217,7 +211,11 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
         const currentZone = ZONES[`zone${currentStage}`] || ZONES.zone1;
         const frameIndex = Math.floor(now * 60); // approximate frame count (moved up for scope)
 
-        for (let i = 0; i < LEAF_COUNT; i++) {
+        // OPTIMIZATION: Only process leaves up to current stage's max
+        const stageConfig = STAGE_LEAF_CONFIG[currentStage - 1] || STAGE_LEAF_CONFIG[0];
+        const maxLeafIdx = stageConfig.end;
+
+        for (let i = 0; i < maxLeafIdx; i++) {
             const idx = i * 3;
             if (positions[idx + 1] < -100) continue; // Skip collected leaves
 
