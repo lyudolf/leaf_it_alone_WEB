@@ -33,7 +33,7 @@ interface LeafManagerProps {
 export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null);
     const customLeafModel = useGameStore(s => s.customLeafModel);
-    const leafModelPath = customLeafModel || '/models/leaf2.glb';
+    const leafModelPath = customLeafModel || '/models/leaf3.glb';
     const { scene: leafModel } = useGLTF(leafModelPath);
     const currentStage = useGameStore(s => s.currentStage);
 
@@ -486,4 +486,4 @@ export function LeafManager({ onLeafApiReady }: LeafManagerProps) {
     );
 }
 
-useGLTF.preload('/models/leaf2.glb');
+useGLTF.preload('/models/leaf3.glb');

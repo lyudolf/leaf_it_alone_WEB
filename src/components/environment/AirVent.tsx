@@ -37,7 +37,7 @@ export function AirVent({
     const hasBlasted = useRef(false);
 
     // Load mole model
-    const { scene: moleModel } = useGLTF('/mole.glb');
+    const { scene: moleModel } = useGLTF('/models/mole.glb');
     const moleScene = useMemo(() => moleModel.clone(), [moleModel]);
 
     const currentStage = useGameStore(s => s.currentStage);

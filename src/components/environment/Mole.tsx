@@ -17,7 +17,7 @@ export function Mole({ position }: MoleProps) {
     const currentY = useRef(position[1] - 0.5); // Start underground
 
     // Load mole model
-    const { scene } = useGLTF('/mole.glb');
+    const { scene } = useGLTF('/models/mole.glb');
     const clonedScene = scene.clone();
 
     // Enable shadows on the model
@@ -70,5 +70,5 @@ export function Mole({ position }: MoleProps) {
     );
 }
 
-useGLTF.preload('/mole.glb');
+useGLTF.preload('/models/mole.glb');
 

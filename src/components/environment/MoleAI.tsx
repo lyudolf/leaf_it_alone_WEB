@@ -18,7 +18,7 @@ interface MoleAIProps {
 }
 
 export function MoleAI({ position, radius, strength, interval, leafApi, zoneMin, zoneMax, scale = 1.5 }: MoleAIProps) {
-    const { scene: moleScene } = useGLTF('/mole.glb');
+    const { scene: moleScene } = useGLTF('/models/mole.glb');
     const [isBlasting, setIsBlasting] = useState(false);
     const setAirVentActive = useGameStore(s => s.setAirVentActive);
     const triggerPlayerPush = useGameStore(s => s.triggerPlayerPush);
@@ -268,4 +268,4 @@ function applyVentForce(api: any, ventPos: THREE.Vector3, radius: number, streng
     }
 }
 
-useGLTF.preload('/mole.glb');
+useGLTF.preload('/models/mole.glb');
