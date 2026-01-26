@@ -103,7 +103,8 @@ export function Player() {
             if (e.code === 'Digit3') {
                 if (useGameStore.getState().unlockedTools.includes('BLOWER')) setTool('BLOWER');
             }
-            // if (e.code === 'Digit4') setTool('VACUUM'); // Disabled
+            // Secret test tool: Press 0 to activate VACUUM (not shown in UI)
+            if (e.code === 'Digit0') setTool('VACUUM');
 
             if (e.code === 'KeyE') {
                 if (useGameStore.getState().isEndingOpen) {

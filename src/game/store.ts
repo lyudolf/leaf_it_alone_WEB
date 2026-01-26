@@ -132,14 +132,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     totalLeaves: 10000,
     totalCollected: 0,
     currentTool: 'HAND',
-    unlockedTools: ['HAND', 'RAKE', 'BLOWER'], // DEBUG: All tools unlocked for Stage 5 testing
+    unlockedTools: ['HAND'], // Production: Start with HAND only
 
     isInventoryOpen: false,
     isShopOpen: false,
     isAirVentActive: false,
     playerPushEvent: null,
-    currentStage: 5, // DEBUG: Start at Stage 5 for AI testing
-    totalLeavesInStage: SCENES[4].goal, // Stage 5 goal
+    currentStage: 1, // Production: Start at Stage 1
+    totalLeavesInStage: SCENES[0].goal, // Stage 1 goal
     bagsDeliveredToDrain: 0,
     bagsRequiredToClear: 0,
     objectiveType: 'LEAVES',
@@ -173,9 +173,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     generationsToday: 0,
     lastGenerationDate: null,
 
-    unlockedPotato: true, // DEBUG: AI helpers unlocked for testing
-    unlockedCarrot: true,
-    unlockedTomato: true,
+    unlockedPotato: false,
+    unlockedCarrot: false,
+    unlockedTomato: false,
 
     pickAmount: 1,
     moneyMultiplier: 1.0,
