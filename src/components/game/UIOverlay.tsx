@@ -4,6 +4,7 @@ import { useGameStore, ToolType } from '@/game/store';
 import { InventoryUI } from '@/components/ui/InventoryUI';
 import { ShopUI } from '@/components/ui/ShopUI';
 import { EndingPanel } from '@/components/ui/EndingPanel';
+import { GraphicsPanel } from '@/components/ui/GraphicsPanel';
 
 const TOOL_ICONS: Record<ToolType, string> = {
     HAND: '✋',
@@ -68,6 +69,19 @@ function UpgradeHint() {
         >
             <span className="bg-yellow-500 text-black text-xs font-black px-1.5 py-0.5 rounded">U</span>
             <span className="text-sm font-bold uppercase tracking-wider">Upgrade</span>
+        </button>
+    );
+}
+
+function SettingsHint() {
+    const toggleGraphics = useGameStore(s => s.toggleGraphics);
+    return (
+        <button
+            onClick={toggleGraphics}
+            className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-500/30 text-slate-300 flex items-center gap-2 mr-3 hover:bg-black/80 hover:scale-105 transition-all pointer-events-auto shadow-lg"
+        >
+            <span className="bg-slate-500 text-white text-xs font-black px-1.5 py-0.5 rounded">O</span>
+            <span className="text-sm font-bold uppercase tracking-wider">설정</span>
         </button>
     );
 }
@@ -397,6 +411,7 @@ export function UIOverlay() {
             {isBagTutorialOpen && <BagTutorialPanel />}
             {isInventoryOpen && <InventoryUI />}
             {isShopOpen && <ShopUI />}
+            <GraphicsPanel />
 
             {/* Help Panel (Top Right, slightly below HUD) */}
             {isHelpOpen && (
@@ -426,6 +441,7 @@ export function UIOverlay() {
             {/* HUD Top Right */}
             <div className="absolute top-8 right-8 pointer-events-none flex flex-col items-end gap-2">
                 <div className="flex items-center">
+                    <SettingsHint />
                     <UpgradeHint />
                     <MoneyDisplay />
                 </div>

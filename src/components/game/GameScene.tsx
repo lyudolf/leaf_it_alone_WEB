@@ -33,6 +33,7 @@ import { HipSH } from '@/components/environment/props/HipSH';
 import { PotatoSH } from '@/components/environment/props/PotatoSH';
 import { CarrotSH } from '@/components/environment/props/CarrotSH';
 import { TomatoSH } from '@/components/environment/props/TomatoSH';
+import { GraphicsController } from '@/components/game/GraphicsController';
 
 
 import { ZONES } from '@/spec/zones';
@@ -117,6 +118,7 @@ export function GameScene() {
                     castShadow
                     shadow-mapSize={[2048, 2048]}
                 />
+                <GraphicsController />
 
                 <Physics
                     gravity={[0, -9.81, 0]}

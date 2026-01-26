@@ -134,6 +134,7 @@ export function Player() {
             if (e.code === 'KeyI') useGameStore.getState().toggleInventory();
             if (e.code === 'KeyU') useGameStore.getState().toggleShop();
             if (e.code === 'KeyP') useGameStore.getState().toggleHelp();
+            if (e.code === 'KeyO') useGameStore.getState().toggleGraphics();
 
             // Movement inputs
             switch (e.code) {

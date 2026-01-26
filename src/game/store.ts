@@ -39,6 +39,18 @@ interface GameState {
     tornadoPosition: [number, number, number] | null; // Tornado position for Stage 5
     isVideoPlaying: boolean; // Ending video playback state
 
+    // Graphics Options
+    isGraphicsOpen: boolean;
+    graphicsShadows: boolean;
+    graphicsResolution: number; // 1.0 = full, 0.75, 0.5
+    graphicsAntialiasing: boolean;
+    graphicsHighQuality: boolean;
+    toggleGraphics: () => void;
+    setGraphicsShadows: (v: boolean) => void;
+    setGraphicsResolution: (v: number) => void;
+    setGraphicsAntialiasing: (v: boolean) => void;
+    setGraphicsHighQuality: (v: boolean) => void;
+
     // Create Mode State
     gameStarted: boolean;
     isCreateMode: boolean;
@@ -120,14 +132,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     totalLeaves: 10000,
     totalCollected: 0,
     currentTool: 'HAND',
-    unlockedTools: ['HAND'], // Production: Start with HAND only
+    unlockedTools: ['HAND', 'RAKE', 'BLOWER'], // DEBUG: All tools unlocked for Stage 5 testing
 
     isInventoryOpen: false,
     isShopOpen: false,
     isAirVentActive: false,
     playerPushEvent: null,
-    currentStage: 1, // Production: Start at Stage 1
-    totalLeavesInStage: SCENES[0].goal, // Stage 1 goal
+    currentStage: 5, // DEBUG: Start at Stage 5 for AI testing
+    totalLeavesInStage: SCENES[4].goal, // Stage 5 goal
     bagsDeliveredToDrain: 0,
     bagsRequiredToClear: 0,
     objectiveType: 'LEAVES',
@@ -139,6 +151,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     tornadoPosition: null,
     isVideoPlaying: false,
 
+    // Graphics Options (defaults: all OFF for performance)
+    isGraphicsOpen: false,
+    graphicsShadows: false,
+    graphicsResolution: 0.75,
+    graphicsAntialiasing: false,
+    graphicsHighQuality: false,
+    toggleGraphics: () => set((s) => ({ isGraphicsOpen: !s.isGraphicsOpen })),
+    setGraphicsShadows: (v) => set({ graphicsShadows: v }),
+    setGraphicsResolution: (v) => set({ graphicsResolution: v }),
+    setGraphicsAntialiasing: (v) => set({ graphicsAntialiasing: v }),
+    setGraphicsHighQuality: (v) => set({ graphicsHighQuality: v }),
+
     // Create Mode State
     gameStarted: false,
     isCreateMode: false,
@@ -149,9 +173,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     generationsToday: 0,
     lastGenerationDate: null,
 
-    unlockedPotato: false,
-    unlockedCarrot: false,
-    unlockedTomato: false,
+    unlockedPotato: true, // DEBUG: AI helpers unlocked for testing
+    unlockedCarrot: true,
+    unlockedTomato: true,
 
     pickAmount: 1,
     moneyMultiplier: 1.0,
